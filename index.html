@@ -18,7 +18,7 @@
             .main-container { grid-template-columns: 1fr 1fr; }
         }
 
-        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; }
         .search-container { text-align: center; margin-bottom: 15px; }
         #search-input { width: 80%; padding: 12px 20px; font-size: 15px; border: 2px solid #d9534f; border-radius: 30px; outline: none; }
         
@@ -48,9 +48,34 @@
         .form-label { font-weight: bold; background: #f1f3f5; padding: 8px; border-radius: 4px; display: flex; align-items: center; }
         .form-control { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 90%; }
         
-        /* 지도 스타일 */
-        #map { width: 100%; height: 480px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; position: relative; }
+        /* 지도 및 고정 범례 스타일 */
+        .map-wrapper { position: relative; width: 100%; }
+        #map { width: 100%; height: 480px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; }
         .map-instruction { background: #fff3cd; color: #856404; padding: 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; text-align: center; }
+
+        /* CARIS형 고정식 피해 범위 범례 창 */
+        .caris-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 2px solid #d9534f;
+            border-radius: 8px;
+            padding: 12px;
+            width: 240px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            font-size: 12px;
+            z-index: 1000;
+        }
+        .legend-title { font-size: 13px; font-weight: bold; color: #c9302c; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; font-weight: 500; }
+        .legend-color-box { width: 30px; height: 12px; margin-right: 8px; border-radius: 2px; display: inline-block; }
+        
+        .line-danger { border-top: 3px solid #d9534f; }
+        .line-warning { border-top: 3px solid #f0ad4e; }
+        .line-info { border-top: 3px dashed #f4d03f; }
+        
+        .legend-note { font-size: 10.5px; color: #666; background: #f8f9fa; padding: 6px; border-radius: 4px; margin-top: 8px; line-height: 1.4; border-left: 3px solid #f0ad4e; }
 
         /* 모드 상태 바 */
         .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; margin-left: 10px; }
@@ -140,10 +165,32 @@
             </div>
 
             <div class="map-instruction">
-                📍 [지도 조작] 리스트에서 행을 클릭한 후, 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 성상별 가변 도면이 자동 작도됩니다.
+                📍 [지도 조작] 행 선택 후 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 해당 지점에 3중 컨투어가 생성됩니다.
             </div>
 
-            <div id="map"></div>
+            <div class="map-wrapper">
+                <div id="map"></div>
+                
+                <div class="caris-legend">
+                    <div class="legend-title">📐 피해 거리 범례 (Contour)</div>
+                    <div class="legend-item">
+                        <div class="legend-color-box line-danger"></div>
+                        <span>🔴 <strong>위험 구역</strong> (실선)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color-box line-warning"></div>
+                        <span>🟠 <strong>준위험 구역</strong> (실선)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color-box line-info"></div>
+                        <span>🟡 <strong>완충 / 오차범위</strong> (점선)</span>
+                    </div>
+                    <div class="legend-note">
+                        <strong>※ 독성 평가 공지</strong><br>
+                        대기의 불확실성으로 인해 피해 결과는 확률적 평균 분포를 따릅니다. 보수적 판단을 유도하고자 <strong>오차범위를 노란색 점선</strong>으로 표기합니다.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -206,14 +253,13 @@
         
         let currentVaporDensity = 1.0;
         let currentEarlyDistance = 30; 
-        let currentMaterialType = "NONE"; // TOXIC(독성만), FIRE(화재만), BOTH(둘다), NONE(기본값)
+        let currentMaterialType = "NONE"; 
 
         let map, pinSource, plumeSource;
         let accidentCoordinate = null; 
 
         window.onload = function() {
             initMap();
-            
             fetch('./data.json?v=' + Math.random())
                 .then(response => response.json())
                 .then(data => {
@@ -257,15 +303,10 @@
         function displayData(items) {
             const tableBody = document.querySelector('#data-table tbody');
             let htmlRows = ''; 
-            if(!items || items.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999;">검색 결과가 없습니다.</td></tr>`;
-                return;
-            }
             items.forEach((item, index) => {
                 const category = item.hazardmaterialclass || '';
                 const classMatch = category.match(/제(\d)류/);
                 const rowClass = classMatch ? `class-${classMatch[1]}` : '';
-                
                 const safeCasno = (item.casno || '').trim();
                 const safeName = (item.chemicalname || '').replace(/'/g, "\\'").trim();
 
@@ -286,9 +327,7 @@
             const numbers = str.match(/\d+/g); 
             if (numbers && numbers.length > 0) {
                 const intNumbers = numbers.map(n => parseInt(n, 10)).filter(n => !isNaN(n));
-                if (intNumbers.length > 0) {
-                    return Math.max(...intNumbers); 
-                }
+                if (intNumbers.length > 0) return Math.max(...intNumbers); 
             }
             return 30;
         }
@@ -297,15 +336,6 @@
             document.getElementById('selected-name').innerText = name;
             document.getElementById('selected-cas').innerText = casNo;
             
-            if(!casNo || casNo === '-') {
-                currentEarlyDistance = 30;
-                currentVaporDensity = 1.0;
-                currentMaterialType = "NONE";
-                updateRenderBadge();
-                updateSimulation();
-                return;
-            }
-
             const url = `https://apis.data.go.kr/1661000/materialInfoSvc/getMaterialInfo?serviceKey=${SERVICE_KEY}&casNo=${casNo}&pageNo=1&numOfRows=1&dataType=JSON`;
 
             fetch(url)
@@ -325,61 +355,30 @@
                     let fireDesc = getRawValue('fireexplosion') || '데이터 없음';
                     let healthDesc = getRawValue('emergencymeasures') || '데이터 없음';
 
-                    // 1. 증기밀도 검증
-                    if (vdVal && !isNaN(parseFloat(vdVal)) && parseFloat(vdVal) > 0) {
-                        currentVaporDensity = parseFloat(vdVal);
-                        document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2);
-                    } else {
-                        currentVaporDensity = 1.0;
-                        document.getElementById('selected-vdensity').innerText = "1.00(기본값)";
-                    }
-
-                    // 2. 이격거리 정밀 분석
-                    if (edVal) {
-                        currentEarlyDistance = parseDistance(edVal);
-                        document.getElementById('selected-edist').innerText = currentEarlyDistance + " m";
-                    } else {
-                        currentEarlyDistance = 30;
-                        document.getElementById('selected-edist').innerText = "30 m (기본값)";
-                    }
+                    currentVaporDensity = (vdVal && !isNaN(parseFloat(vdVal))) ? parseFloat(vdVal) : 1.0;
+                    document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2);
+                    currentEarlyDistance = edVal ? parseDistance(edVal) : 30;
+                    document.getElementById('selected-edist').innerText = currentEarlyDistance + " m";
 
                     document.getElementById('selected-toxicity').innerText = healthDesc;
                     document.getElementById('selected-flammability').innerText = fireDesc;
 
-                    // 3. 🧠 핵심 알고리즘: 독성 및 인화성 판별 분기 로직
-                    let hasToxic = false;
-                    let hasFire = false;
-
-                    // 독성 판별 키워드 검사
-                    const toxicKeywords = ["독성", "흡입", "치명적", "유독가스", "의식 상실", "유해", "부식성"];
-                    if (healthDesc !== '데이터 없음' && toxicKeywords.some(k => healthDesc.includes(k))) {
-                        hasToxic = true;
-                    }
-                    // 불산 특화 예외 처리
+                    let hasToxic = false, hasFire = false;
+                    const toxicKeywords = ["독성", "흡입", "치명적", "유독가스", "부식성"];
+                    if (healthDesc !== '데이터 없음' && toxicKeywords.some(k => healthDesc.includes(k))) hasToxic = true;
                     if (name.includes("불산") || name.includes("불화수소")) hasToxic = true;
 
-                    // 인화성/화재 판별 키워드 검사
-                    const fireKeywords = ["인화성", "가연성", "쉽게 점화", "폭발 위험", "화재를 일으킴", "인화점"];
-                    if (fireDesc !== '데이터 없음' && fireKeywords.some(k => fireDesc.includes(k))) {
-                        hasFire = true;
-                    }
+                    const fireKeywords = ["인화성", "가연성", "폭발 위험", "화재", "인화점"];
+                    if (fireDesc !== '데이터 없음' && fireKeywords.some(k => fireDesc.includes(k))) hasFire = true;
 
-                    // 최종 모드 확정
-                    if (hasToxic && hasFire) {
-                        currentMaterialType = "BOTH"; // 둘 다 포함
-                    } else if (hasFire) {
-                        currentMaterialType = "FIRE";  // 화재(원 모양) 전용
-                    } else if (hasToxic) {
-                        currentMaterialType = "TOXIC"; // 독성(플룸) 전용
-                    } else {
-                        currentMaterialType = "TOXIC"; // 데이터 미비 시 디폴트는 안전하게 독성 대응 모드
-                    }
+                    if (hasToxic && hasFire) currentMaterialType = "BOTH";
+                    else if (hasFire) currentMaterialType = "FIRE";
+                    else currentMaterialType = "TOXIC";
 
                     updateRenderBadge();
                     updateSimulation();
-                }).catch(err => {
-                    console.error("API 연동 에러:", err);
-                    currentMaterialType = "NONE";
+                }).catch(() => {
+                    currentMaterialType = "TOXIC";
                     updateRenderBadge();
                     updateSimulation();
                 });
@@ -388,20 +387,9 @@
         function updateRenderBadge() {
             const badge = document.getElementById('render-mode-badge');
             badge.className = "status-badge";
-            
-            if (currentMaterialType === "TOXIC") {
-                badge.innerText = "☣️ 독성 확산 모드 (플룸 형태)";
-                badge.classList.add("status-toxic");
-            } else if (currentMaterialType === "FIRE") {
-                badge.innerText = "🔥 인화 폭발 모드 (원형 형태)";
-                badge.classList.add("status-fire");
-            } else if (currentMaterialType === "BOTH") {
-                badge.innerText = "💥 복합 재난 모드 (원형 + 플룸)";
-                badge.classList.add("status-both");
-            } else {
-                badge.innerText = "선택 없음";
-                badge.classList.add("status-none");
-            }
+            if (currentMaterialType === "TOXIC") { badge.innerText = "☣️ 독성 확산 컨투어"; badge.classList.add("status-toxic"); }
+            else if (currentMaterialType === "FIRE") { badge.innerText = "🔥 인화 폭발 컨투어"; badge.classList.add("status-fire"); }
+            else if (currentMaterialType === "BOTH") { badge.innerText = "💥 복합 재난 컨투어"; badge.classList.add("status-both"); }
         }
 
         function drawAccidentPin(coord) {
@@ -425,50 +413,72 @@
             const windSpeed = parseFloat(document.getElementById('sim-wind-speed').value) || 1.0;
             const leakRate = parseFloat(document.getElementById('sim-leak-rate').value) || 1.0;
 
-            // 1. 🔵 화재성 원형 구역 작도 (FIRE 또는 BOTH 모드일 때만 실행)
+            const r_danger = currentEarlyDistance * 0.6;   
+            const r_warning = currentEarlyDistance * 1.0;  
+            const r_buffer = currentEarlyDistance * 1.5;   
+
             if (currentMaterialType === "FIRE" || currentMaterialType === "BOTH") {
-                const circleFeature = new ol.Feature(new ol.geom.Circle(accidentCoordinate, Number(currentEarlyDistance)));
-                circleFeature.setStyle(new ol.style.Style({
-                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.35)' }), // 정원 형태 빨간색 반투명
-                    stroke: new ol.style.Stroke({ color: '#d9534f', width: 2.5 })
+                const fBuffer = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_buffer));
+                fBuffer.setStyle(new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: '#f4d03f', width: 2.5, lineDash: [6, 6] }),
+                    fill: new ol.style.Fill({ color: 'rgba(244, 208, 63, 0.08)' })
                 }));
-                plumeSource.addFeature(circleFeature);
+                const fWarning = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_warning));
+                fWarning.setStyle(new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2.5 }),
+                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.12)' })
+                }));
+                const fDanger = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_danger));
+                fDanger.setStyle(new ol.style.Style({
+                    stroke: new ol.style.Stroke({ color: '#d9534f', width: 3 }),
+                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.2)' })
+                }));
+                plumeSource.addFeatures([fBuffer, fWarning, fDanger]);
             }
 
-            // 2. 🟢 독성 확산 플룸 작도 (TOXIC 또는 BOTH 모드일 때만 실행)
             if (currentMaterialType === "TOXIC" || currentMaterialType === "BOTH") {
-                let maxPlumeLength = (leakRate / (windSpeed + 0.5)) * 15 * (currentVaporDensity >= 1.0 ? 1.4 : 0.9);
-                if (maxPlumeLength < currentEarlyDistance) maxPlumeLength = currentEarlyDistance * 2.5;
-                if (maxPlumeLength > 2000) maxPlumeLength = 2000; 
+                let baseLength = (leakRate / (windSpeed + 0.5)) * 15 * (currentVaporDensity >= 1.0 ? 1.4 : 0.9);
+                if (baseLength < currentEarlyDistance) baseLength = currentEarlyDistance * 2.5;
+                if (baseLength > 2000) baseLength = 2000;
 
                 const windRadian = ((270 - windDirDeg) * Math.PI) / 180;
-                const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
-                const coordinates = [accidentCoordinate];
-                const segments = 40;
-                const spreadAngle = 25 * (Math.PI / 180);
+                
+                const scales = [
+                    { len: baseLength * 0.5, color: '#d9534f', fill: 'rgba(217, 83, 79, 0.2)', dash: null, width: 3 },      
+                    { len: baseLength * 1.0, color: '#f0ad4e', fill: 'rgba(240, 173, 78, 0.12)', dash: null, width: 2.5 },    
+                    { len: baseLength * 1.4, color: '#f4d03f', fill: 'rgba(244, 208, 63, 0.08)', dash: [6, 6], width: 2.5 }     
+                ];
 
-                for (let i = 0; i <= segments; i++) {
-                    const factor = i / segments;
-                    const angleOffset = (factor - 0.5) * 2 * spreadAngle;
-                    const currentAngle = windRadian + angleOffset;
-                    const dist = maxPlumeLength * Math.cos(angleOffset);
+                scales.reverse().forEach(scale => {
+                    const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
+                    const coordinates = [accidentCoordinate];
+                    const segments = 40;
+                    const spreadAngle = 25 * (Math.PI / 180);
 
-                    const deltaLon = (dist * Math.sin(currentAngle)) / 111000 / Math.cos((centerLonLat[1] * Math.PI) / 180);
-                    const deltaLat = (dist * Math.cos(currentAngle)) / 111000;
+                    for (let i = 0; i <= segments; i++) {
+                        const factor = i / segments;
+                        const angleOffset = (factor - 0.5) * 2 * spreadAngle;
+                        const currentAngle = windRadian + angleOffset;
+                        const dist = scale.len * Math.cos(angleOffset);
 
-                    coordinates.push(ol.proj.fromLonLat([centerLonLat[0] + deltaLon, centerLonLat[1] + deltaLat]));
-                }
-                coordinates.push(accidentCoordinate);
+                        const deltaLon = (dist * Math.sin(currentAngle)) / 111000 / Math.cos((centerLonLat[1] * Math.PI) / 180);
+                        const deltaLat = (dist * Math.cos(currentAngle)) / 111000;
 
-                const plumeFeature = new ol.Feature(new ol.geom.Polygon([coordinates]));
-                plumeFeature.setStyle(new ol.style.Style({
-                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.3)' }), // 가스 확산 플룸 주황색 반투명
-                    stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2 })
-                }));
-                plumeSource.addFeature(plumeFeature);
+                        coordinates.push(ol.proj.fromLonLat([centerLonLat[0] + deltaLon, centerLonLat[1] + deltaLat]));
+                    }
+                    coordinates.push(accidentCoordinate);
+
+                    const polyFeature = new ol.Feature(new ol.geom.Polygon([coordinates]));
+                    polyFeature.setStyle(new ol.style.Style({
+                        stroke: new ol.style.Stroke({ color: scale.color, width: scale.width, lineDash: scale.dash }),
+                        fill: new ol.style.Fill({ color: scale.fill })
+                    }));
+                    plumeSource.addFeature(polyFeature);
+                });
             }
         }
 
+        /* 👑 [완벽 복구] 상세보기 모달창 소방청 데이터 연동 및 매핑 함수 */
         function fetchDetail(casNo, name) {
             const modal = document.getElementById('info-modal');
             const loading = document.getElementById('modal-loading');
@@ -495,6 +505,7 @@
                         return '데이터 없음';
                     };
 
+                    // 1. 물리화학적 특성 정보 연동
                     document.getElementById('m-formula').innerText = getValue('chemicalformula');
                     document.getElementById('m-mformula').innerText = getValue('molecularformula');
                     document.getElementById('m-weight').innerText = getValue('molecularweight');
@@ -510,16 +521,19 @@
                     document.getElementById('m-wsol').innerHTML = getValue('watersolubility');
                     document.getElementById('m-sg').innerText = getValue('specificgravity');
 
+                    // 2. 화재 및 폭발 위험성 정보 연동
                     document.getElementById('m-flash').innerText = getValue('flashpoint');
                     document.getElementById('m-ignition').innerText = getValue('ignitionpoint');
                     document.getElementById('m-exmax').innerText = getValue('explosionmaximum');
                     document.getElementById('m-exmin').innerText = getValue('explosionminimum');
                     document.getElementById('m-fire-desc').innerHTML = getValue('fireexplosion');
 
+                    // 3. CARIS대응 및 초기 이격거리 연동
                     document.getElementById('m-edist').innerText = getValue('earlydistance');
                     document.getElementById('m-pdist').innerText = getValue('protectivedistance');
                     document.getElementById('m-smell').innerHTML = getValue('smellthresholdval');
                     
+                    // 4. 구조 및 현장 대처 요령 연동
                     document.getElementById('m-emergency').innerHTML = getValue('emergencymeasures');
                     document.getElementById('m-leak-protect').innerHTML = getValue('leakprotecting');
 
@@ -543,19 +557,7 @@
 
             const filtered = allItems.filter(item => {
                 return (item.chemicalname || '').toLowerCase().includes(keyword) || (item.casno || '').toLowerCase().includes(keyword);
-            }).sort((a, b) => {
-                const nameA = (a.chemicalname || '').toLowerCase();
-                const nameB = (b.chemicalname || '').toLowerCase();
-                const isExactA = nameA.startsWith(keyword) ? 0 : 1;
-                const isExactB = nameB.startsWith(keyword) ? 0 : 1;
-                if (isExactA !== isExactB) return isExactA - isExactB;
-
-                const classA = parseInt((a.hazardmaterialclass || '').match(/제(\d)류/)?.[1]) || 99;
-                const classB = parseInt((b.hazardmaterialclass || '').match(/제(\d)류/)?.[1]) || 99;
-                if (classA !== classB) return classA - classB;
-                return nameA.localeCompare(nameB);
             });
-
             displayData(filtered.slice(0, 100)); 
         });
     </script>
