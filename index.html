@@ -20,7 +20,15 @@
         .badge { background: #6c757d; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
         .badge-warning { background: #d9534f; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px; }
 
-        /* 대형 팝업창 스타일 (많은 데이터를 담기 위해 넓히고 스크롤 적용) */
+        /* [추가] 위험물 유별 배경 색상 스타일 */
+        .class-1 { background-color: #ccffcc !important; } /* 1류: 연두색 */
+        .class-2 { background-color: #ffcc99 !important; } /* 2류: 주황색 */
+        .class-3 { background-color: #ffff99 !important; } /* 3류: 노랑색 */
+        .class-4 { background-color: #e6ccff !important; } /* 4류: 보라색 */
+        .class-5 { background-color: #ffcccc !important; } /* 5류: 빨간색 */
+        .class-6 { background-color: #cceeff !important; } /* 6류: 파란색 */
+
+        /* 대형 팝업창 스타일 (100% 유지) */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 750px; max-height: 85vh; overflow-y: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
         .modal-header { border-bottom: 2px solid #d9534f; padding-bottom: 10px; margin-bottom: 15px; }
@@ -123,6 +131,7 @@
                 displayData(allItems.slice(0, 50));
             });
 
+        // 테이블 출력 함수 (유별 색상 클래스 자동 추가 기능 탑재)
         function displayData(items) {
             const tableBody = document.querySelector('#data-table tbody');
             let htmlRows = ''; 
@@ -131,16 +140,22 @@
                 return;
             }
             items.forEach((item, index) => {
-                htmlRows += `<tr onclick="fetchDetail('${item.casno}', '${item.chemicalname}', '${item.hazardmaterialclass}', '${item.unno}')">
+                // '제4류' 패턴에서 숫자만 추출하여 색상 클래스 적용
+                const category = item.hazardmaterialclass || '';
+                const classMatch = category.match(/제(\d)류/);
+                const rowClass = classMatch ? `class-${classMatch[1]}` : '';
+
+                htmlRows += `<tr class="${rowClass}" onclick="fetchDetail('${item.casno}', '${item.chemicalname}', '${item.hazardmaterialclass}', '${item.unno}')">
                     <td>${index + 1}</td>
                     <td><strong>${item.chemicalname || '정보 없음'}</strong></td>
                     <td>${item.casno || '-'}</td>
-                    <td><span class="badge">${item.hazardmaterialclass || '정보 없음'}</span></td>
+                    <td><span class="badge">${category || '정보 없음'}</span></td>
                 </tr>`;
             });
             tableBody.innerHTML = htmlRows;
         }
 
+        // 실시간 상세 데이터 크롤링 및 파싱 함수 (100% 완전 보존)
         function fetchDetail(casNo, name, hClass, un) {
             const modal = document.getElementById('info-modal');
             const loading = document.getElementById('modal-loading');
@@ -175,7 +190,6 @@
                     document.getElementById('m-mformula').innerText = getValue('molecularformula');
                     document.getElementById('m-weight').innerText = getValue('molecularweight');
                     
-                    // 증기밀도 파싱 및 무거운 가스 경고 배지 추가 자동화 원리
                     let vd = getValue('vapordensity');
                     if(vd !== '데이터 없음' && parseFloat(vd) > 1.0) {
                         vd += ` <span class="badge-warning">⚠️ 대기 가라앉음 (공기보다 무거움)</span>`;
@@ -219,12 +233,31 @@
             }
         }
 
+        // 지능형 검색 정렬 리스너 (요청사항 반영)
         document.getElementById('search-input').addEventListener('input', function(e) {
             const keyword = e.target.value.trim().toLowerCase(); 
             if (!keyword) { displayData(allItems.slice(0, 50)); return; }
+
             const filtered = allItems.filter(item => {
                 return (item.chemicalname || '').toLowerCase().includes(keyword) || (item.casno || '').toLowerCase().includes(keyword);
+            }).sort((a, b) => {
+                const nameA = (a.chemicalname || '').toLowerCase();
+                const nameB = (b.chemicalname || '').toLowerCase();
+                
+                // 1순위: 입력한 단어로 정확하게 시작하는 항목 우선 정렬
+                const isExactA = nameA.startsWith(keyword) ? 0 : 1;
+                const isExactB = nameB.startsWith(keyword) ? 0 : 1;
+                if (isExactA !== isExactB) return isExactA - isExactB;
+
+                // 2순위: 단순 포함 항목은 1류 ~ 6류 순으로 정렬
+                const classA = parseInt((a.hazardmaterialclass || '').match(/제(\d)류/)?.[1]) || 99;
+                const classB = parseInt((b.hazardmaterialclass || '').match(/제(\d)류/)?.[1]) || 99;
+                if (classA !== classB) return classA - classB;
+                
+                // 3순위: 유별까지 같다면 가나다(이름) 순 정렬
+                return nameA.localeCompare(nameB);
             });
+
             displayData(filtered.slice(0, 100)); 
         });
     </script>
