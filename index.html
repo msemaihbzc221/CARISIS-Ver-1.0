@@ -23,7 +23,7 @@
         #search-input { width: 80%; padding: 12px 20px; font-size: 15px; border: 2px solid #d9534f; border-radius: 30px; outline: none; }
         
         /* 테이블 스타일 */
-        .table-wrapper { max-height: 380px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .table-wrapper { max-height: 350px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; background: white; text-align: left; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: middle; }
         th { background-color: #d9534f; color: white; position: sticky; top: 0; z-index: 10; }
@@ -51,6 +51,13 @@
         /* 지도 스타일 */
         #map { width: 100%; height: 480px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; position: relative; }
         .map-instruction { background: #fff3cd; color: #856404; padding: 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; text-align: center; }
+
+        /* 모드 상태 바 */
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; margin-left: 10px; }
+        .status-toxic { background-color: #e67e22; }
+        .status-fire { background-color: #d9534f; }
+        .status-both { background-color: #9b59b6; }
+        .status-none { background-color: #7f8c8d; }
 
         /* 대형 팝업창(모달) 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
@@ -94,7 +101,10 @@
                 </table>
             </div>
             
-            <div class="sim-title" style="margin-top:20px;">🧪 선택된 물질 피해변수 정보 (실시간 API 연동값)</div>
+            <div class="sim-title" style="margin-top:20px;">
+                🧪 선택된 물질 피해변수 정보
+                <span id="render-mode-badge" class="status-badge status-none">선택 없음</span>
+            </div>
             <div class="info-grid" style="grid-template-columns: 120px 1fr 120px 1fr; gap: 8px;">
                 <div class="info-label">선택 물질</div><div class="info-value" id="selected-name" style="color:#d9534f; font-weight:bold;">선택 없음</div>
                 <div class="info-label">CAS 번호</div><div class="info-value" id="selected-cas">-</div>
@@ -112,7 +122,6 @@
                     <div id="selected-flammability" class="long-text-box" style="height:45px; max-height:45px; background:#f7f9ff; font-size:12px; margin-top:3px; padding:8px;">물질을 선택하면 불연성/가연성 여부가 표시됩니다.</div>
                 </div>
             </div>
-            <p style="font-size:11px; color:#777; margin-top:8px; margin-bottom:0;">※ 행을 클릭하면 해당 물질의 유해성과 확산 반경이 시뮬레이터에 동시 반영됩니다.</p>
         </div>
 
         <div class="panel">
@@ -131,7 +140,7 @@
             </div>
 
             <div class="map-instruction">
-                📍 [지도 조작] 리스트에서 행을 먼저 클릭한 뒤, 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 해당 지점 기준 확산 플룸이 생성됩니다!
+                📍 [지도 조작] 리스트에서 행을 클릭한 후, 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 성상별 가변 도면이 자동 작도됩니다.
             </div>
 
             <div id="map"></div>
@@ -197,6 +206,7 @@
         
         let currentVaporDensity = 1.0;
         let currentEarlyDistance = 30; 
+        let currentMaterialType = "NONE"; // TOXIC(독성만), FIRE(화재만), BOTH(둘다), NONE(기본값)
 
         let map, pinSource, plumeSource;
         let accidentCoordinate = null; 
@@ -290,10 +300,8 @@
             if(!casNo || casNo === '-') {
                 currentEarlyDistance = 30;
                 currentVaporDensity = 1.0;
-                document.getElementById('selected-vdensity').innerText = "데이터 없음 (기본값 1.00)";
-                document.getElementById('selected-edist').innerText = "30 m (기본값)";
-                document.getElementById('selected-toxicity').innerText = "정보 없음";
-                document.getElementById('selected-flammability').innerText = "정보 없음";
+                currentMaterialType = "NONE";
+                updateRenderBadge();
                 updateSimulation();
                 return;
             }
@@ -320,36 +328,80 @@
                     // 1. 증기밀도 검증
                     if (vdVal && !isNaN(parseFloat(vdVal)) && parseFloat(vdVal) > 0) {
                         currentVaporDensity = parseFloat(vdVal);
-                        document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2) + (currentVaporDensity > 1.0 ? " (공기보다 무거움)" : " (공기보다 가벼움)");
+                        document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2);
                     } else {
                         currentVaporDensity = 1.0;
-                        document.getElementById('selected-vdensity').innerText = "데이터 없음 (기본값 1.00)";
+                        document.getElementById('selected-vdensity').innerText = "1.00(기본값)";
                     }
 
                     // 2. 이격거리 정밀 분석
                     if (edVal) {
                         currentEarlyDistance = parseDistance(edVal);
-                        document.getElementById('selected-edist').innerText = currentEarlyDistance + ` m [원본: ${edVal.toString().trim()}]`;
+                        document.getElementById('selected-edist').innerText = currentEarlyDistance + " m";
                     } else {
                         currentEarlyDistance = 30;
                         document.getElementById('selected-edist').innerText = "30 m (기본값)";
                     }
 
-                    // 3. 독성 유무 및 인화성/불연성 요약 추출 매핑
-                    document.getElementById('selected-toxicity').innerHTML = healthDesc !== '데이터 없음' ? healthDesc : "소방청 연동 독성 텍스트 없음";
-                    document.getElementById('selected-flammability').innerHTML = fireDesc !== '데이터 없음' ? fireDesc : "소방청 연동 화재 특성 텍스트 없음";
-                    
+                    document.getElementById('selected-toxicity').innerText = healthDesc;
+                    document.getElementById('selected-flammability').innerText = fireDesc;
+
+                    // 3. 🧠 핵심 알고리즘: 독성 및 인화성 판별 분기 로직
+                    let hasToxic = false;
+                    let hasFire = false;
+
+                    // 독성 판별 키워드 검사
+                    const toxicKeywords = ["독성", "흡입", "치명적", "유독가스", "의식 상실", "유해", "부식성"];
+                    if (healthDesc !== '데이터 없음' && toxicKeywords.some(k => healthDesc.includes(k))) {
+                        hasToxic = true;
+                    }
+                    // 불산 특화 예외 처리
+                    if (name.includes("불산") || name.includes("불화수소")) hasToxic = true;
+
+                    // 인화성/화재 판별 키워드 검사
+                    const fireKeywords = ["인화성", "가연성", "쉽게 점화", "폭발 위험", "화재를 일으킴", "인화점"];
+                    if (fireDesc !== '데이터 없음' && fireKeywords.some(k => fireDesc.includes(k))) {
+                        hasFire = true;
+                    }
+
+                    // 최종 모드 확정
+                    if (hasToxic && hasFire) {
+                        currentMaterialType = "BOTH"; // 둘 다 포함
+                    } else if (hasFire) {
+                        currentMaterialType = "FIRE";  // 화재(원 모양) 전용
+                    } else if (hasToxic) {
+                        currentMaterialType = "TOXIC"; // 독성(플룸) 전용
+                    } else {
+                        currentMaterialType = "TOXIC"; // 데이터 미비 시 디폴트는 안전하게 독성 대응 모드
+                    }
+
+                    updateRenderBadge();
                     updateSimulation();
                 }).catch(err => {
                     console.error("API 연동 에러:", err);
-                    currentEarlyDistance = 30;
-                    currentVaporDensity = 1.0;
-                    document.getElementById('selected-vdensity').innerText = "오류 (기본값 1.00)";
-                    document.getElementById('selected-edist').innerText = "30 m (기본값)";
-                    document.getElementById('selected-toxicity').innerText = "데이터 로드 실패";
-                    document.getElementById('selected-flammability').innerText = "데이터 로드 실패";
+                    currentMaterialType = "NONE";
+                    updateRenderBadge();
                     updateSimulation();
                 });
+        }
+
+        function updateRenderBadge() {
+            const badge = document.getElementById('render-mode-badge');
+            badge.className = "status-badge";
+            
+            if (currentMaterialType === "TOXIC") {
+                badge.innerText = "☣️ 독성 확산 모드 (플룸 형태)";
+                badge.classList.add("status-toxic");
+            } else if (currentMaterialType === "FIRE") {
+                badge.innerText = "🔥 인화 폭발 모드 (원형 형태)";
+                badge.classList.add("status-fire");
+            } else if (currentMaterialType === "BOTH") {
+                badge.innerText = "💥 복합 재난 모드 (원형 + 플룸)";
+                badge.classList.add("status-both");
+            } else {
+                badge.innerText = "선택 없음";
+                badge.classList.add("status-none");
+            }
         }
 
         function drawAccidentPin(coord) {
@@ -373,44 +425,48 @@
             const windSpeed = parseFloat(document.getElementById('sim-wind-speed').value) || 1.0;
             const leakRate = parseFloat(document.getElementById('sim-leak-rate').value) || 1.0;
 
-            let maxPlumeLength = (leakRate / (windSpeed + 0.5)) * 15 * (currentVaporDensity >= 1.0 ? 1.4 : 0.9);
-            if (maxPlumeLength < currentEarlyDistance) maxPlumeLength = currentEarlyDistance * 2.5;
-            if (maxPlumeLength > 2000) maxPlumeLength = 2000; 
-
-            // 초기 격리 구역
-            const circleFeature = new ol.Feature(new ol.geom.Circle(accidentCoordinate, Number(currentEarlyDistance)));
-            circleFeature.setStyle(new ol.style.Style({
-                fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.35)' }),
-                stroke: new ol.style.Stroke({ color: '#d9534f', width: 2, lineDash: [4, 4] })
-            }));
-            plumeSource.addFeature(circleFeature);
-
-            // 확산 플룸 구역
-            const windRadian = ((270 - windDirDeg) * Math.PI) / 180;
-            const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
-            const coordinates = [accidentCoordinate];
-            const segments = 40;
-            const spreadAngle = 25 * (Math.PI / 180);
-
-            for (let i = 0; i <= segments; i++) {
-                const factor = i / segments;
-                const angleOffset = (factor - 0.5) * 2 * spreadAngle;
-                const currentAngle = windRadian + angleOffset;
-                const dist = maxPlumeLength * Math.cos(angleOffset);
-
-                const deltaLon = (dist * Math.sin(currentAngle)) / 111000 / Math.cos((centerLonLat[1] * Math.PI) / 180);
-                const deltaLat = (dist * Math.cos(currentAngle)) / 111000;
-
-                coordinates.push(ol.proj.fromLonLat([centerLonLat[0] + deltaLon, centerLonLat[1] + deltaLat]));
+            // 1. 🔵 화재성 원형 구역 작도 (FIRE 또는 BOTH 모드일 때만 실행)
+            if (currentMaterialType === "FIRE" || currentMaterialType === "BOTH") {
+                const circleFeature = new ol.Feature(new ol.geom.Circle(accidentCoordinate, Number(currentEarlyDistance)));
+                circleFeature.setStyle(new ol.style.Style({
+                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.35)' }), // 정원 형태 빨간색 반투명
+                    stroke: new ol.style.Stroke({ color: '#d9534f', width: 2.5 })
+                }));
+                plumeSource.addFeature(circleFeature);
             }
-            coordinates.push(accidentCoordinate);
 
-            const plumeFeature = new ol.Feature(new ol.geom.Polygon([coordinates]));
-            plumeFeature.setStyle(new ol.style.Style({
-                fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.25)' }),
-                stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2 })
-            }));
-            plumeSource.addFeature(plumeFeature);
+            // 2. 🟢 독성 확산 플룸 작도 (TOXIC 또는 BOTH 모드일 때만 실행)
+            if (currentMaterialType === "TOXIC" || currentMaterialType === "BOTH") {
+                let maxPlumeLength = (leakRate / (windSpeed + 0.5)) * 15 * (currentVaporDensity >= 1.0 ? 1.4 : 0.9);
+                if (maxPlumeLength < currentEarlyDistance) maxPlumeLength = currentEarlyDistance * 2.5;
+                if (maxPlumeLength > 2000) maxPlumeLength = 2000; 
+
+                const windRadian = ((270 - windDirDeg) * Math.PI) / 180;
+                const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
+                const coordinates = [accidentCoordinate];
+                const segments = 40;
+                const spreadAngle = 25 * (Math.PI / 180);
+
+                for (let i = 0; i <= segments; i++) {
+                    const factor = i / segments;
+                    const angleOffset = (factor - 0.5) * 2 * spreadAngle;
+                    const currentAngle = windRadian + angleOffset;
+                    const dist = maxPlumeLength * Math.cos(angleOffset);
+
+                    const deltaLon = (dist * Math.sin(currentAngle)) / 111000 / Math.cos((centerLonLat[1] * Math.PI) / 180);
+                    const deltaLat = (dist * Math.cos(currentAngle)) / 111000;
+
+                    coordinates.push(ol.proj.fromLonLat([centerLonLat[0] + deltaLon, centerLonLat[1] + deltaLat]));
+                }
+                coordinates.push(accidentCoordinate);
+
+                const plumeFeature = new ol.Feature(new ol.geom.Polygon([coordinates]));
+                plumeFeature.setStyle(new ol.style.Style({
+                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.3)' }), // 가스 확산 플룸 주황색 반투명
+                    stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2 })
+                }));
+                plumeSource.addFeature(plumeFeature);
+            }
         }
 
         function fetchDetail(casNo, name) {
