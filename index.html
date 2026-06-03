@@ -213,7 +213,6 @@
             pinSource = new ol.source.Vector();
             plumeSource = new ol.source.Vector();
 
-            // 에러가 났던 pinLayer 정의 오타 부분을 깔끔하게 정돈했습니다.
             map = new ol.Map({
                 target: 'map',
                 layers: [
@@ -249,8 +248,6 @@
                 
                 const safeCasno = (item.casno || '').trim();
                 const safeName = (item.chemicalname || '').replace(/'/g, "\\'").trim();
-                const safeHClass = (item.hazardmaterialclass || '').replace(/'/g, "\\'").trim();
-                const safeUnno = (item.unno || '').trim();
 
                 htmlRows += `<tr class="${rowClass}" onclick="selectMaterial('${safeCasno}', '${safeName}')">
                     <td>${index + 1}</td>
@@ -263,6 +260,26 @@
             tableBody.innerHTML = htmlRows;
         }
 
+        // 지능형 데이터 정제 함수 (낮/밤 분리 문자열 처리 기능 추가)
+        function parseDistance(rawStr) {
+            if (!rawStr || rawStr === '데이터 없음' || rawStr === '-') return 30;
+            const str = rawStr.toString();
+            
+            // "낮: 50m, 밤: 300m" 같은 문자열 구조 대응
+            if (str.includes('낮') || str.includes('밤')) {
+                const numbers = str.match(/\d+/g); // 모든 숫자 추출 배열
+                if (numbers && numbers.length > 0) {
+                    // 안전공학 관점에서 밤(최대값) 또는 추출된 수치 중 가장 보수적인 큰 값을 반환
+                    const intNumbers = numbers.map(n => parseInt(n));
+                    return Math.max(...intNumbers);
+                }
+            }
+            
+            // 일반적인 "30 m" 형태 처리
+            const num = parseInt(str.replace(/[^0-9]/g, ""));
+            return num || 30;
+        }
+
         function selectMaterial(casNo, name) {
             document.getElementById('selected-name').innerText = name;
             document.getElementById('selected-cas').innerText = casNo;
@@ -270,7 +287,7 @@
             if(!casNo || casNo === '-') {
                 currentEarlyDistance = 30;
                 currentVaporDensity = 1.0;
-                document.getElementById('selected-vdensity').innerText = "1.00 (기본값)";
+                document.getElementById('selected-vdensity').innerText = "데이터 없음 (기본값 1.00)";
                 document.getElementById('selected-edist').innerText = "30 m (기본값)";
                 updateSimulation();
                 return;
@@ -293,17 +310,31 @@
                     let vdVal = getRawValue('vapordensity');
                     let edVal = getRawValue('earlydistance');
 
-                    currentVaporDensity = vdVal ? (parseFloat(vdVal) || 1.0) : 1.0;
-                    currentEarlyDistance = edVal ? (parseInt(edVal.toString().replace(/[^0-9]/g, "")) || 30) : 30;
+                    // 1. 증기밀도 검증 및 상태 세분화
+                    if (vdVal && !isNaN(parseFloat(vdVal)) && parseFloat(vdVal) > 0) {
+                        currentVaporDensity = parseFloat(vdVal);
+                        document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2) + (currentVaporDensity > 1.0 ? " (공기보다 무거움)" : " (공기보다 가벼움)");
+                    } else {
+                        currentVaporDensity = 1.0;
+                        document.getElementById('selected-vdensity').innerText = "데이터 없음 (기본값 1.00)";
+                    }
 
-                    document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2) + (currentVaporDensity > 1.0 ? " (공기보다 무거움)" : " (공기보다 가벼움)");
-                    document.getElementById('selected-edist').innerText = currentEarlyDistance + " m";
+                    // 2. 이격거리 정밀 분석 파싱 적용
+                    if (edVal) {
+                        currentEarlyDistance = parseDistance(edVal);
+                        document.getElementById('selected-edist').innerText = currentEarlyDistance + ` m (${edVal.toString().trim()})`;
+                    } else {
+                        currentEarlyDistance = 30;
+                        document.getElementById('selected-edist').innerText = "30 m (기본값)";
+                    }
                     
                     updateSimulation();
                 }).catch(err => {
                     console.error("API 연동 에러:", err);
                     currentEarlyDistance = 30;
                     currentVaporDensity = 1.0;
+                    document.getElementById('selected-vdensity').innerText = "오류 (기본값 1.00)";
+                    document.getElementById('selected-edist').innerText = "30 m (기본값)";
                     updateSimulation();
                 });
         }
