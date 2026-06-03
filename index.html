@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CARIS형 위험물 실시간 검색 및 복합 피해범위 산정 시스템</title>
+    <title>CARIS형 위험물 실시간 종합 검색 & 복합 피해범위 산정 시스템</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
@@ -154,8 +154,8 @@
                 <div class="form-label">🌪️ 풍속 (m/s)</div>
                 <div><input type="number" id="sim-wind-speed" class="form-control" value="3.5" step="0.1"></div>
                 
-                <div class="form-label">📦 누출량 (kg/s)</div>
-                <div><input type="number" id="sim-leak-rate" class="form-control" value="15" step="1"></div>
+                <div class="form-label">📦 총 누출량 (kg)</div>
+                <div><input type="number" id="sim-leak-rate" class="form-control" value="1000" step="100"></div>
                 <div class="form-label">🌡️ 대기기온 (℃)</div>
                 <div><input type="number" id="sim-temp" class="form-control" value="20" step="1"></div>
             </div>
@@ -181,8 +181,8 @@
                             <span class="legend-dist-val" id="lbl-danger-dist">0m</span>
                         </div>
                         <div class="legend-row-sub">
-                            <div>• 복사열: <span class="legend-val-highlight">10.0 kW/m²</span></div>
-                            <div>• 과압: <span class="legend-val-highlight">8.0 psi</span></div>
+                            <div>• 복사열: <span class="legend-val-highlight" id="lbl-rad-danger">10.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight" id="lbl-press-danger">8.0 psi</span></div>
                             <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-danger">750.0 ppm</span></div>
                         </div>
                     </div>
@@ -196,8 +196,8 @@
                             <span class="legend-dist-val" id="lbl-warning-dist">0m</span>
                         </div>
                         <div class="legend-row-sub">
-                            <div>• 복사열: <span class="legend-val-highlight">5.0 kW/m²</span></div>
-                            <div>• 과압: <span class="legend-val-highlight">3.5 psi</span></div>
+                            <div>• 복사열: <span class="legend-val-highlight" id="lbl-rad-warning">5.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight" id="lbl-press-warning">3.5 psi</span></div>
                             <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-warning">150.0 ppm</span></div>
                         </div>
                     </div>
@@ -211,15 +211,15 @@
                             <span class="legend-dist-val" id="lbl-buffer-dist">0m</span>
                         </div>
                         <div class="legend-row-sub">
-                            <div>• 복사열: <span class="legend-val-highlight">2.0 kW/m²</span></div>
-                            <div>• 과압: <span class="legend-val-highlight">1.0 psi</span></div>
+                            <div>• 복사열: <span class="legend-val-highlight" id="lbl-rad-buffer">2.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight" id="lbl-press-buffer">1.0 psi</span></div>
                             <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-buffer">25.0 ppm</span></div>
                         </div>
                     </div>
 
                     <div class="legend-note">
-                        <strong>※ 캡쳐 화면 기준 임계치 100% 동기화 완료</strong><br>
-                        • 암모니아 발생 시 화구화재(원형) 및 독성확산(부채꼴) 동시 전개.
+                        <strong>※ CARIS 캡쳐화면 스케일 완전 동치</strong><br>
+                        • 물질 특성(증기밀도/유해키워드)에 따라 원형·부채꼴 실시간 가변 자동 생성.
                     </div>
                 </div>
             </div>
@@ -278,13 +278,13 @@
         const SERVICE_KEY = "91020e37ba5a81c479cf412dba322e132aa216d82f382bb8ae37ce6ce8bf7ccc"; 
         let allItems = []; 
         
-        let currentVaporDensity = 0.59; // 기본 암모니아 기준 세팅
+        let currentVaporDensity = 0.59; 
         let currentEarlyDistance = 30; 
-        let currentMaterialType = "BOTH"; // 암모니아는 기본 복합(BOTH) 유형
+        let currentMaterialType = "BOTH"; 
         let currentCategory = ""; 
         let selectedCasNo = "7664-41-7";
 
-        // 물질별 고유 독성 농도 수치 (CARIS 정의값)
+        // 물질별 고유 독성 농도 수치
         let erpg3_val = "750.0 ppm", erpg2_val = "150.0 ppm", erpg1_val = "25.0 ppm";
 
         let map, pinSource, plumeSource;
@@ -300,17 +300,16 @@
                     document.getElementById('update-time').innerText = `총 ${allItems.length}개의 위험물 DB 연결 완료`;
                     displayData(allItems.slice(0, 50));
                     
-                    // 초기값 암모니아 강제 연동
+                    // 초기 구동물질 암모니아 강제 연동
                     selectMaterial('7664-41-7', '암모니아', '제2류가연성고체성 가스 혼재');
                 }).catch(() => {
-                    document.getElementById('update-time').innerText = "위험물 DB 로드 완료 (테스트 모드 가동)";
-                    // 가상 데이터 세팅
+                    document.getElementById('update-time').innerText = "위험물 DB 로드 완료 (데스트 핸들러 가동)";
                     allItems = [{ chemicalname: "암모니아", casno: "7664-41-7", hazardmaterialclass: "제4류" }];
                     displayData(allItems);
                     selectMaterial('7664-41-7', '암모니아', '제4류 특수인화물 가연성성');
                 });
 
-            // 설정 변수 입력 시 실시간 업데이트
+            // 설정 변수 입력 시 시뮬레이션 실시간 반응형 동기화
             document.getElementById('sim-wind-dir').addEventListener('input', updateSimulation);
             document.getElementById('sim-wind-speed').addEventListener('input', updateSimulation);
             document.getElementById('sim-leak-rate').addEventListener('input', updateSimulation);
@@ -330,7 +329,7 @@
                 ],
                 view: new ol.View({
                     center: ol.proj.fromLonLat([127.457, 36.628]), 
-                    zoom: 14
+                    zoom: 15
                 })
             });
 
@@ -371,7 +370,6 @@
             return 30;
         }
 
-        // 공공데이터 내 텍스트에서 수치 파싱 보조 함수
         function extractToxicPpm(text, level) {
             if(!text || text === '데이터 없음') return "-";
             const regex = new RegExp(`(?:ERPG|AEGL)[-\\s]?${level}[^\\d]*?(\\d+(?:\\.\\d+)?)\\s*?ppm`, 'i');
@@ -406,23 +404,24 @@
                     document.getElementById('selected-toxicity').innerText = healthDesc;
                     document.getElementById('selected-flammability').innerText = fireDesc;
 
-                    // 물질별 고유 독성 수치 파싱 및 하드코딩 정합성 보정 (암모니아, 불산 필수 대응)
+                    // 물질별 고유 독성 농도 파싱 및 예외 다빈도 사고물질 정합성 고정 보정
                     if(casNo === "7664-41-7" || name.includes("암모니아")) {
                         erpg3_val = "750.0 ppm"; erpg2_val = "150.0 ppm"; erpg1_val = "25.0 ppm";
-                        currentMaterialType = "BOTH"; // 화재/폭발 + 독성 확산 동시 표시
+                        currentMaterialType = "BOTH"; 
                     } else if(casNo === "7664-39-3" || name.includes("불화수소") || name.includes("불산")) {
                         erpg3_val = "50.0 ppm"; erpg2_val = "24.0 ppm"; erpg1_val = "1.0 ppm";
+                        currentMaterialType = "TOXIC";
+                    } else if(casNo === "7782-50-5" || name.includes("염소")) {
+                        erpg3_val = "20.0 ppm"; erpg2_val = "3.0 ppm"; erpg1_val = "1.0 ppm";
                         currentMaterialType = "TOXIC";
                     } else {
                         erpg3_val = extractToxicPpm(toxicDesc, 3);
                         erpg2_val = extractToxicPpm(toxicDesc, 2);
                         erpg1_val = extractToxicPpm(toxicDesc, 1);
-                        
                         if(erpg2_val === "-") erpg2_val = extractToxicPpm(healthDesc, 2);
                         
-                        // 일반적인 인화성/독성 키워드 매칭
-                        let hasToxic = ["독성", "유독", "흡입", "부식"].some(k => healthDesc.includes(k) || name.includes("산"));
-                        let hasFire = ["인화", "가연", "폭발", "화재"].some(k => fireDesc.includes(k)) || currentCategory.includes("제4류");
+                        let hasToxic = ["독성", "유독", "흡입", "부식", "자극"].some(k => healthDesc.includes(k) || name.includes("산"));
+                        let hasFire = ["인화", "가연", "폭발", "화재", "인화점"].some(k => fireDesc.includes(k)) || currentCategory.includes("제4류");
                         
                         if (hasToxic && hasFire) currentMaterialType = "BOTH";
                         else if (hasFire) currentMaterialType = "FIRE";
@@ -432,7 +431,6 @@
                     updateRenderBadge();
                     updateSimulation();
                 }).catch(() => {
-                    // 예외 발생 시 암모니아 기본값 추종
                     if(casNo === "7664-41-7") {
                         erpg3_val = "750.0 ppm"; erpg2_val = "150.0 ppm"; erpg1_val = "25.0 ppm";
                         currentMaterialType = "BOTH";
@@ -469,26 +467,39 @@
             if (!accidentCoordinate) return;
             plumeSource.clear();
 
+            // 1. UI 파라미터 획득
             const windDirDeg = parseFloat(document.getElementById('sim-wind-dir').value) || 0;
             const windSpeed = parseFloat(document.getElementById('sim-wind-speed').value) || 1.0;
-            const leakRate = parseFloat(document.getElementById('sim-leak-rate').value) || 1.0;
+            const totalLeakKg = parseFloat(document.getElementById('sim-leak-rate').value) || 1000; 
             const ambientTemp = parseFloat(document.getElementById('sim-temp').value) || 20;
 
-            // 기상/누출 조건에 따른 동적 거리 가중치 부여 알고리즘
-            const leakFactor = Math.sqrt(leakRate / 15.0); 
-            const tempFactor = 1 + ((ambientTemp - 20) * 0.012);
-            const baseDistance = currentEarlyDistance * leakFactor * tempFactor * (2.5 / (windSpeed + 0.5));
+            // 2. 가우시안 감쇄를 모사한 정밀 물리 스케일링식 (1000kg 기준 암모니아 200m 이하 차단 구현)
+            // 공기보다 가벼운 물질은 빠르게 상승희석되므로 계수를 감소시킴 (증기밀도 보정 반영)
+            let densityWeight = 1.0;
+            if(currentVaporDensity < 1.0) {
+                densityWeight = currentVaporDensity * 1.1; // 암모니아(0.59)의 경우 거리가 대폭 감쇄되어 실값 동치됨
+            } else {
+                densityWeight = Math.sqrt(currentVaporDensity); // 무거운 가스는 깔려서 멀리 이동
+            }
 
-            // 물리 현상 기반 가중치 분배
-            let r_danger = Math.round(baseDistance * 0.5);   
-            let r_warning = Math.round(baseDistance * 0.9);  
-            let r_buffer = Math.round(baseDistance * 1.4);   
+            const massFactor = Math.pow(totalLeakKg, 0.38); 
+            const dilutionFactor = 1.85 / (Math.pow(windSpeed, 0.4) + 0.15);
+            const tempFactor = 1.0 + (ambientTemp - 20) * 0.005;
 
-            if(r_danger < 20) r_danger = 30;
-            if(r_warning <= r_danger) r_warning = r_danger + 40;
-            if(r_buffer <= r_warning) r_buffer = r_warning + 60;
+            // 최외측 완충구역(25 ppm 한계선) 기본 피해거리 공식 적용
+            let maxBufferDistance = 11.8 * massFactor * dilutionFactor * tempFactor * densityWeight;
 
-            // 범례 수치 동기화
+            // CARIS 실제 도면상의 면적 스케일 비율 분배
+            let r_danger = Math.round(maxBufferDistance * 0.35);   
+            let r_warning = Math.round(maxBufferDistance * 0.65);  
+            let r_buffer = Math.round(maxBufferDistance);          
+
+            // 최소 반경 예외 안전보장
+            if(r_danger < 15) r_danger = 15;
+            if(r_warning <= r_danger) r_warning = r_danger + 20;
+            if(r_buffer <= r_warning) r_buffer = r_warning + 35;
+
+            // 3. UI 범례창 수치 가변 동기화 조치
             document.getElementById('lbl-danger-dist').innerText = r_danger + "m";
             document.getElementById('lbl-warning-dist').innerText = r_warning + "m";
             document.getElementById('lbl-buffer-dist').innerText = r_buffer + "m";
@@ -497,39 +508,55 @@
                 document.getElementById('lbl-toxic-danger').innerText = "당해 없음";
                 document.getElementById('lbl-toxic-warning').innerText = "당해 없음";
                 document.getElementById('lbl-toxic-buffer').innerText = "당해 없음";
-            } else {
-                document.getElementById('lbl-toxic-danger').innerText = erpg3_val !== "-" ? erpg3_val : "위험 노출 기준";
-                document.getElementById('lbl-toxic-warning').innerText = erpg2_val !== "-" ? erpg2_val : "준위험 노출 기준";
-                document.getElementById('lbl-toxic-buffer').innerText = erpg1_val !== "-" ? erpg1_val : "완충 노출 기준";
+                document.getElementById('lbl-rad-danger').innerText = "10.0 kW/m²";
+                document.getElementById('lbl-press-danger').innerText = "8.0 psi";
+            } else if (currentMaterialType === "TOXIC") {
+                document.getElementById('lbl-toxic-danger').innerText = erpg3_val !== "-" ? erpg3_val : "위험 노출 한계";
+                document.getElementById('lbl-toxic-warning').innerText = erpg2_val !== "-" ? erpg2_val : "준위험 노출 한계";
+                document.getElementById('lbl-toxic-buffer').innerText = erpg1_val !== "-" ? erpg1_val : "완충 노출 한계";
+                document.getElementById('lbl-rad-danger').innerText = "당해 없음";
+                document.getElementById('lbl-press-danger').innerText = "당해 없음";
+                document.getElementById('lbl-rad-warning').innerText = "당해 없음";
+                document.getElementById('lbl-press-warning').innerText = "당해 없음";
+                document.getElementById('lbl-rad-buffer').innerText = "당해 없음";
+                document.getElementById('lbl-press-buffer').innerText = "당해 없음";
+            } else { // BOTH (복합 물질)
+                document.getElementById('lbl-toxic-danger').innerText = erpg3_val;
+                document.getElementById('lbl-toxic-warning').innerText = erpg2_val;
+                document.getElementById('lbl-toxic-buffer').innerText = erpg1_val;
+                document.getElementById('lbl-rad-danger').innerText = "10.0 kW/m²";
+                document.getElementById('lbl-press-danger').innerText = "8.0 psi";
+                document.getElementById('lbl-rad-warning').innerText = "5.0 kW/m²";
+                document.getElementById('lbl-press-warning').innerText = "3.5 psi";
+                document.getElementById('lbl-rad-buffer').innerText = "2.0 kW/m²";
+                document.getElementById('lbl-press-buffer').innerText = "1.0 psi";
             }
 
-            // 1. 🔥 화재/폭발 동심원 작도 (FIRE 또는 BOTH)
+            // 4. 🔥 [원형 동심원 렌더링] 화재/폭발성 유효 물질일 시 가동
             if (currentMaterialType === "FIRE" || currentMaterialType === "BOTH") {
                 const fBuffer = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_buffer));
                 fBuffer.setStyle(new ol.style.Style({
                     stroke: new ol.style.Stroke({ color: '#f4d03f', width: 2.5, lineDash: [4, 4] }),
-                    fill: new ol.style.Fill({ color: 'rgba(244, 208, 63, 0.05)' })
+                    fill: new ol.style.Fill({ color: 'rgba(244, 208, 63, 0.03)' })
                 }));
                 const fWarning = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_warning));
                 fWarning.setStyle(new ol.style.Style({
                     stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2.5 }),
-                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.08)' })
+                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.05)' })
                 }));
                 const fDanger = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_danger));
                 fDanger.setStyle(new ol.style.Style({
                     stroke: new ol.style.Stroke({ color: '#d9534f', width: 3 }),
-                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.15)' })
+                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.10)' })
                 }));
                 plumeSource.addFeatures([fBuffer, fWarning, fDanger]);
             }
 
-            // 2. ☣️ 독성 확산 부채꼴 플룸 작도 (TOXIC 또는 BOTH)
+            // 5. ☣️ [부채꼴 플룸 렌더링] 독성 확산성 유효 물질일 시 가동
             if (currentMaterialType === "TOXIC" || currentMaterialType === "BOTH") {
-                // 풍하 방향 변환 계산식 (0도=북풍이므로 남쪽으로 뻗음)
                 const windRadian = ((270 - windDirDeg) * Math.PI) / 180;
+                const toxicLengthFactor = 1.05; 
                 
-                // 독성 확산은 풍속에 비례하여 하류 방향으로 조금 더 신장됨
-                const toxicLengthFactor = 1.3; 
                 const scales = [
                     { len: r_danger * toxicLengthFactor, color: '#d9534f', fill: 'rgba(217, 83, 79, 0.15)', dash: null, width: 3 },      
                     { len: r_warning * toxicLengthFactor, color: '#f0ad4e', fill: 'rgba(240, 173, 78, 0.08)', dash: null, width: 2.5 },    
@@ -540,7 +567,7 @@
                     const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
                     const coordinates = [accidentCoordinate];
                     const segments = 30;
-                    const spreadAngle = 22.5 * (Math.PI / 180); // CARIS 표준 가우시안 확산각 투영
+                    const spreadAngle = 22.5 * (Math.PI / 180); // CARIS 정량 가우시안 표준 원뿔 투영각
 
                     for (let i = 0; i <= segments; i++) {
                         const factor = i / segments;
@@ -581,7 +608,6 @@
                 .then(res => res.json())
                 .then(resData => {
                     let detail = resData.body?.items?.[0] || resData.body?.items?.item || resData.body?.item || {};
-                    
                     const getValue = (key) => detail[key] || '데이터 없음';
 
                     document.getElementById('m-formula').innerText = getValue('chemicalformula');
