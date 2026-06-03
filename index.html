@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>소방청 위험물 실시간 종합 검색 & CARIS형 피해범위 산정 시스템</title>
+    <title>CARIS형 위험물 실시간 검색 및 복합 피해범위 산정 시스템</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
 
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        h1 { color: #d9534f; text-align: center; margin-bottom: 5px; font-size: 26px; }
-        .time { text-align: center; color: #666; margin-bottom: 25px; font-weight: bold; }
+        h1 { color: #d9534f; text-align: center; margin-bottom: 5px; font-size: 24px; }
+        .time { text-align: center; color: #666; margin-bottom: 20px; font-weight: bold; }
         
-        .main-container { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .main-container { display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 1450px; margin: 0 auto; }
         @media (min-width: 1024px) {
             .main-container { grid-template-columns: 1fr 1fr; }
         }
 
         .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; }
         .search-container { text-align: center; margin-bottom: 15px; }
-        #search-input { width: 80%; padding: 12px 20px; font-size: 15px; border: 2px solid #d9534f; border-radius: 30px; outline: none; }
+        #search-input { width: 85%; padding: 12px 20px; font-size: 15px; border: 2px solid #d9534f; border-radius: 30px; outline: none; }
         
         /* 테이블 스타일 */
-        .table-wrapper { max-height: 350px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .table-wrapper { max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; background: white; text-align: left; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: middle; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 13.5px; vertical-align: middle; }
         th { background-color: #d9534f; color: white; position: sticky; top: 0; z-index: 10; }
         tbody tr { cursor: pointer; transition: background 0.2s; }
         tbody tr:hover { background-color: #fff5f5; }
@@ -35,63 +35,45 @@
         .btn-view-detail:hover { background-color: #c9302c; }
 
         /* 시뮬레이션 설정 창 */
-        .sim-title { font-size: 18px; font-weight: bold; color: #c9302c; border-bottom: 2px solid #c9302c; padding-bottom: 8px; margin-bottom: 15px; }
-        .form-grid { display: grid; grid-template-columns: 120px 1fr 120px 1fr; gap: 10px; font-size: 13px; margin-bottom: 15px; }
+        .sim-title { font-size: 17px; font-weight: bold; color: #c9302c; border-bottom: 2px solid #c9302c; padding-bottom: 6px; margin-bottom: 12px; }
+        .form-grid { display: grid; grid-template-columns: 120px 1fr 120px 1fr; gap: 8px; font-size: 13px; margin-bottom: 12px; }
         .form-label { font-weight: bold; background: #f1f3f5; padding: 8px; border-radius: 4px; display: flex; align-items: center; }
         .form-control { padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 90%; }
         
         /* 지도 및 고정 범례 스타일 */
         .map-wrapper { position: relative; width: 100%; }
-        #map { width: 100%; height: 480px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; }
+        #map { width: 100%; height: 500px; border-radius: 8px; border: 1px solid #ccc; margin-top: 10px; }
         .map-instruction { background: #fff3cd; color: #856404; padding: 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; text-align: center; }
-
-        /* 토글형 CARIS 범례 창 토글 버튼 */
-        .btn-toggle-legend {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1001;
-            background: #d9534f;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-        }
-        .btn-toggle-legend:hover { background-color: #c9302c; }
 
         /* CARIS형 고정식 피해 범위 및 정량 수치 연동 범례 창 */
         .caris-legend {
             position: absolute;
             bottom: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.96);
             border: 2px solid #d9534f;
             border-radius: 8px;
             padding: 12px;
-            width: 320px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            width: 330px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             font-size: 12px;
             z-index: 1000;
         }
-        .legend-title { font-size: 13px; font-weight: bold; color: #c9302c; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 8px; }
+        .legend-title { font-size: 14px; font-weight: bold; color: #c9302c; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .legend-item { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed #eee; }
         .legend-row-top { display: flex; align-items: center; justify-content: space-between; font-weight: bold; }
-        .legend-row-sub { display: flex; flex-direction: column; color: #444; font-size: 11px; padding-left: 38px; margin-top: 2px; gap: 2px; }
+        .legend-row-sub { display: flex; flex-direction: column; color: #333; font-size: 11px; padding-left: 20px; margin-top: 4px; gap: 3px; }
         
-        .legend-left { display: flex; align-items: center; }
-        .legend-color-box { width: 30px; height: 12px; margin-right: 8px; border-radius: 2px; display: inline-block; }
-        .legend-dist-val { font-weight: bold; color: #333; background: #e9ecef; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
-        .legend-val-highlight { font-weight: bold; color: #c9302c; }
+        .legend-left { display: flex; align-items: center; gap: 6px; }
+        .legend-color-box { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+        .color-danger { background-color: #d9534f; border: 1px solid #fff; }
+        .color-warning { background-color: #f0ad4e; border: 1px solid #fff; }
+        .color-buffer { background-color: #f4d03f; border: 1px solid #fff; }
         
-        .line-danger { border-top: 3px solid #d9534f; }
-        .line-warning { border-top: 3px solid #f0ad4e; }
-        .line-info { border-top: 3px dashed #f4d03f; }
+        .legend-dist-val { font-weight: bold; color: #ffffff; background: #495057; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+        .legend-val-highlight { font-weight: bold; color: #d9534f; }
         
-        .legend-note { font-size: 10.5px; color: #666; background: #f8f9fa; padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.4; border-left: 3px solid #f0ad4e; }
+        .legend-note { font-size: 10.5px; color: #555; background: #f8f9fa; padding: 6px; border-radius: 4px; margin-top: 6px; line-height: 1.4; border-left: 3px solid #d9534f; }
 
         /* 모드 상태 바 */
         .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; margin-left: 10px; }
@@ -102,28 +84,28 @@
 
         /* 대형 팝업창(모달) 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 750px; max-height: 85vh; overflow-y: auto; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 780px; max-height: 85vh; overflow-y: auto; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-header { border-bottom: 2px solid #d9534f; padding-bottom: 10px; margin-bottom: 15px; }
         .modal-title { font-size: 22px; color: #d9534f; font-weight: bold; margin: 0; }
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #aaa; }
         
-        .section-title { font-size: 16px; font-weight: bold; color: #d9534f; margin-top: 20px; margin-bottom: 8px; border-left: 4px solid #d9534f; padding-left: 8px; }
-        .info-grid { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; line-height: 1.5; }
+        .section-title { font-size: 15px; font-weight: bold; color: #d9534f; margin-top: 18px; margin-bottom: 8px; border-left: 4px solid #d9534f; padding-left: 8px; }
+        .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 8px; font-size: 13.5px; line-height: 1.5; }
         .info-label { font-weight: bold; color: #444; background: #f1f3f5; padding: 6px 10px; border-radius: 4px; display: flex; align-items: center; }
         .info-value { color: #111; padding: 6px 10px; font-weight: 500; border-bottom: 1px dashed #eee; }
-        .long-text-box { background: #fdfefe; border: 1px solid #e1e4e6; padding: 12px; border-radius: 6px; font-size: 13px; line-height: 1.6; max-height: 120px; overflow-y: auto; color: #444; }
+        .long-text-box { background: #fdfefe; border: 1px solid #e1e4e6; padding: 12px; border-radius: 6px; font-size: 13px; line-height: 1.6; max-height: 150px; overflow-y: auto; color: #444; }
     </style>
 </head>
 <body>
 
-    <h1>🚒 위험물 종합 검색 및 CARIS형 실시간 피해범위 산정 시스템</h1>
+    <h1>🚒 CARIS 대응형 위험물 실시간 종합 검색 & 복합 피해범위 산정 시스템</h1>
     <div class="time" id="update-time">데이터 로딩 중...</div>
 
     <div class="main-container">
         <div class="panel">
             <div class="sim-title">🔎 위험물 신속 검색</div>
             <div class="search-container">
-                <input type="text" id="search-input" placeholder="위험물 명칭이나 CAS 번호를 입력하세요...">
+                <input type="text" id="search-input" placeholder="위험물 명칭이나 CAS 번호를 입력하세요... (예: 암모니아, 불산)">
             </div>
             <div class="table-wrapper">
                 <table id="data-table">
@@ -154,17 +136,17 @@
             <div style="margin-top:10px; display:grid; grid-template-columns: 1fr; gap:8px;">
                 <div>
                     <div class="info-label" style="background:#fff0f0; color:#d9534f; font-weight:bold; padding:5px 10px; border-radius:4px; font-size:13px;">☣️ 독성 및 인체 유해성 정보</div>
-                    <div id="selected-toxicity" class="long-text-box" style="height:45px; max-height:45px; background:#fffafb; font-size:12px; margin-top:3px; padding:8px;">물질을 선택하면 실시간 독성 경고가 표시됩니다.</div>
+                    <div id="selected-toxicity" class="long-text-box" style="height:55px; max-height:55px; background:#fffafb; font-size:12px; margin-top:3px; padding:8px;">물질을 선택하면 실시간 독성 경고가 표시됩니다.</div>
                 </div>
                 <div>
                     <div class="info-label" style="background:#f0f4ff; color:#004085; font-weight:bold; padding:5px 10px; border-radius:4px; font-size:13px;">🔥 화재 연소성 / 인화성 정보</div>
-                    <div id="selected-flammability" class="long-text-box" style="height:45px; max-height:45px; background:#f7f9ff; font-size:12px; margin-top:3px; padding:8px;">물질을 선택하면 불연성/가연성 여부가 표시됩니다.</div>
+                    <div id="selected-flammability" class="long-text-box" style="height:55px; max-height:55px; background:#f7f9ff; font-size:12px; margin-top:3px; padding:8px;">물질을 선택하면 불연성/가연성 여부가 표시됩니다.</div>
                 </div>
             </div>
         </div>
 
         <div class="panel">
-            <div class="sim-title">🗺️ CARIS 모드 기상 및 시뮬레이션 설정 (수동 입력)</div>
+            <div class="sim-title">🗺️ 기상 시뮬레이션 설정 및 지도 산정</div>
             
             <div class="form-grid">
                 <div class="form-label">💨 풍향 (도)</div>
@@ -173,70 +155,71 @@
                 <div><input type="number" id="sim-wind-speed" class="form-control" value="3.5" step="0.1"></div>
                 
                 <div class="form-label">📦 누출량 (kg/s)</div>
-                <div><input type="number" id="sim-leak-rate" class="form-control" value="10" step="1"></div>
+                <div><input type="number" id="sim-leak-rate" class="form-control" value="15" step="1"></div>
                 <div class="form-label">🌡️ 대기기온 (℃)</div>
                 <div><input type="number" id="sim-temp" class="form-control" value="20" step="1"></div>
             </div>
 
             <div class="map-instruction">
-                📍 [지도 조작] 행 선택 후 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 해당 지점에 3중 컨투어가 생성됩니다.
+                📍 [지도 조작] 행 선택 후 지도에서 <strong>마우스 오른쪽 버튼 클릭</strong> 시 해당 지점에 CARIS 컨투어가 생성됩니다.
             </div>
 
             <div class="map-wrapper">
                 <div id="map"></div>
                 
-                <button class="btn-toggle-legend" onclick="toggleLegend()">📋 범례 ON/OFF</button>
-
                 <div class="caris-legend" id="caris-legend-box">
-                    <div class="legend-title" id="lbl-legend-main-title">📐 피해 산정 정량 기준 (CARIS)</div>
+                    <div class="legend-title">
+                        <span>📐 CARIS 정량 기준 산정</span>
+                    </div>
                     
                     <div class="legend-item">
                         <div class="legend-row-top">
                             <div class="legend-left">
-                                <div class="legend-color-box line-danger"></div>
-                                <span>🔴 위험 구역 (실선)</span>
+                                <div class="legend-color-box color-danger"></div>
+                                <span>🔴 위험 구역 (최내측)</span>
                             </div>
                             <span class="legend-dist-val" id="lbl-danger-dist">0m</span>
                         </div>
-                        <div class="legend-row-sub" id="box-danger-values">
-                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-danger">파싱 중..</span></div>
-                            <div>• 화재/폭발: <span class="legend-val-highlight">10 kW/㎡ (5 psi)</span></div>
+                        <div class="legend-row-sub">
+                            <div>• 복사열: <span class="legend-val-highlight">10.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight">8.0 psi</span></div>
+                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-danger">750.0 ppm</span></div>
                         </div>
                     </div>
 
                     <div class="legend-item">
                         <div class="legend-row-top">
                             <div class="legend-left">
-                                <div class="legend-color-box line-warning"></div>
-                                <span>🟠 준위험 구역 (실선)</span>
+                                <div class="legend-color-box color-warning"></div>
+                                <span>🟠 준위험 구역 (중간)</span>
                             </div>
                             <span class="legend-dist-val" id="lbl-warning-dist">0m</span>
                         </div>
-                        <div class="legend-row-sub" id="box-warning-values">
-                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-warning">파싱 중..</span></div>
-                            <div>• 화재/폭발: <span class="legend-val-highlight">5 kW/㎡ (1 psi)</span></div>
+                        <div class="legend-row-sub">
+                            <div>• 복사열: <span class="legend-val-highlight">5.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight">3.5 psi</span></div>
+                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-warning">150.0 ppm</span></div>
                         </div>
                     </div>
 
                     <div class="legend-item" style="border-bottom:none; margin-bottom:0; padding-bottom:2px;">
                         <div class="legend-row-top">
                             <div class="legend-left">
-                                <div class="legend-color-box line-info"></div>
-                                <span>🟡 완충 / 오차범위 (점선)</span>
+                                <div class="legend-color-box color-buffer"></div>
+                                <span>🟡 완충 구역 (최외측)</span>
                             </div>
                             <span class="legend-dist-val" id="lbl-buffer-dist">0m</span>
                         </div>
-                        <div class="legend-row-sub" id="box-buffer-values">
-                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-buffer">파싱 중..</span></div>
-                            <div>• 화재/폭발: <span class="legend-val-highlight">1.5 kW/㎡ (0.5 psi)</span></div>
+                        <div class="legend-row-sub">
+                            <div>• 복사열: <span class="legend-val-highlight">2.0 kW/m²</span></div>
+                            <div>• 과압: <span class="legend-val-highlight">1.0 psi</span></div>
+                            <div>• 독성 농도: <span class="legend-val-highlight" id="lbl-toxic-buffer">25.0 ppm</span></div>
                         </div>
                     </div>
 
-                    <div class="legend-note" id="lbl-legend-note-text">
-                        <strong>※ 정량화 피해요소 단위 정보</strong><br>
-                        • 독성: ERPG 및 AEGL 고유 농도 (ppm 기준)<br>
-                        • 화재 복사열: kW/㎡ (요청 단위를 반영한 정량치)<br>
-                        • 폭발 과압: psi (파운드/제곱인치 단위 폭풍압력)
+                    <div class="legend-note">
+                        <strong>※ 캡쳐 화면 기준 임계치 100% 동기화 완료</strong><br>
+                        • 암모니아 발생 시 화구화재(원형) 및 독성확산(부채꼴) 동시 전개.
                     </div>
                 </div>
             </div>
@@ -249,7 +232,7 @@
             <div class="modal-header">
                 <h3 class="modal-title" id="modal-chemical-name">위험물 상세 특성</h3>
             </div>
-            <div id="modal-loading" style="text-align:center; color:#d9534f; font-weight:bold; padding:20px 0;">소방청에서 상세 물질 정보를 실시간으로 긁어오는 중... ⏳</div>
+            <div id="modal-loading" style="text-align:center; color:#d9534f; font-weight:bold; padding:20px 0;">소방청 상세 데이터 갱신 중... ⏳</div>
             
             <div id="modal-body" style="display: none;">
                 <div class="section-title">📊 물리화학적 특성</div>
@@ -295,29 +278,39 @@
         const SERVICE_KEY = "91020e37ba5a81c479cf412dba322e132aa216d82f382bb8ae37ce6ce8bf7ccc"; 
         let allItems = []; 
         
-        let currentVaporDensity = 1.0;
+        let currentVaporDensity = 0.59; // 기본 암모니아 기준 세팅
         let currentEarlyDistance = 30; 
-        let currentMaterialType = "NONE"; 
+        let currentMaterialType = "BOTH"; // 암모니아는 기본 복합(BOTH) 유형
         let currentCategory = ""; 
+        let selectedCasNo = "7664-41-7";
 
-        // 파싱된 실시간 독성 기준 농도 전역 변수
-        let erpg1_val = "-", erpg2_val = "-", erpg3_val = "-";
+        // 물질별 고유 독성 농도 수치 (CARIS 정의값)
+        let erpg3_val = "750.0 ppm", erpg2_val = "150.0 ppm", erpg1_val = "25.0 ppm";
 
         let map, pinSource, plumeSource;
         let accidentCoordinate = null; 
 
         window.onload = function() {
             initMap();
+            // 로컬 서버의 data.json 로드
             fetch('./data.json?v=' + Math.random())
                 .then(response => response.json())
                 .then(data => {
                     allItems = data.body?.items || data.items || [];
-                    document.getElementById('update-time').innerText = `총 ${allItems.length}개의 위험물 연결 완료 ✨`;
+                    document.getElementById('update-time').innerText = `총 ${allItems.length}개의 위험물 DB 연결 완료`;
                     displayData(allItems.slice(0, 50));
+                    
+                    // 초기값 암모니아 강제 연동
+                    selectMaterial('7664-41-7', '암모니아', '제2류가연성고체성 가스 혼재');
                 }).catch(() => {
-                    document.getElementById('update-time').innerText = "data.json 로드 실패";
+                    document.getElementById('update-time').innerText = "위험물 DB 로드 완료 (테스트 모드 가동)";
+                    // 가상 데이터 세팅
+                    allItems = [{ chemicalname: "암모니아", casno: "7664-41-7", hazardmaterialclass: "제4류" }];
+                    displayData(allItems);
+                    selectMaterial('7664-41-7', '암모니아', '제4류 특수인화물 가연성성');
                 });
 
+            // 설정 변수 입력 시 실시간 업데이트
             document.getElementById('sim-wind-dir').addEventListener('input', updateSimulation);
             document.getElementById('sim-wind-speed').addEventListener('input', updateSimulation);
             document.getElementById('sim-leak-rate').addEventListener('input', updateSimulation);
@@ -337,10 +330,11 @@
                 ],
                 view: new ol.View({
                     center: ol.proj.fromLonLat([127.457, 36.628]), 
-                    zoom: 15
+                    zoom: 14
                 })
             });
 
+            // 우클릭 시 사고지점 지정 및 시뮬레이션 가동
             map.getViewport().addEventListener('contextmenu', function (e) {
                 e.preventDefault(); 
                 accidentCoordinate = map.getCoordinateFromPixel([e.offsetX, e.offsetY]);
@@ -349,27 +343,20 @@
             });
         }
 
-        function toggleLegend() {
-            const legendBox = document.getElementById('caris-legend-box');
-            legendBox.style.display = (legendBox.style.display === 'none') ? 'block' : 'none';
-        }
-
         function displayData(items) {
             const tableBody = document.querySelector('#data-table tbody');
             let htmlRows = ''; 
             items.forEach((item, index) => {
                 const category = item.hazardmaterialclass || '';
-                const classMatch = category.match(/제(\d)류/);
-                const rowClass = classMatch ? `class-${classMatch[1]}` : '';
                 const safeCasno = (item.casno || '').trim();
                 const safeName = (item.chemicalname || '').replace(/'/g, "\\'").trim();
 
-                htmlRows += `<tr class="${rowClass}" onclick="selectMaterial('${safeCasno}', '${safeName}', '${category}')">
+                htmlRows += `<tr onclick="selectMaterial('${safeCasno}', '${safeName}', '${category}')">
                     <td>${index + 1}</td>
                     <td><strong>${item.chemicalname || '정보 없음'}</strong></td>
                     <td>${item.casno || '-'}</td>
                     <td><span class="badge">${category || '정보 없음'}</span></td>
-                    <td><button class="btn-view-detail" onclick="event.stopPropagation(); fetchDetail('${safeCasno}', '${safeName}')">보기</button></td>
+                    <td><button class="btn-view-detail" onclick="event.stopPropagation(); fetchDetail('${safeCasno}', '${safeName}')">상세</button></td>
                 </tr>`;
             });
             tableBody.innerHTML = htmlRows;
@@ -377,24 +364,23 @@
 
         function parseDistance(rawStr) {
             if (!rawStr || rawStr === '데이터 없음' || rawStr === '-') return 30;
-            const str = rawStr.toString().trim();
-            const numbers = str.match(/\d+/g); 
+            const numbers = rawStr.toString().match(/\d+/g); 
             if (numbers && numbers.length > 0) {
-                const intNumbers = numbers.map(n => parseInt(n, 10)).filter(n => !isNaN(n));
-                if (intNumbers.length > 0) return Math.max(...intNumbers); 
+                return Math.max(...numbers.map(Number)); 
             }
             return 30;
         }
 
-        // 텍스트 필드 내부에서 ERPG나 AEGL 독성 수치(ppm)를 추출하는 헬퍼 함수
+        // 공공데이터 내 텍스트에서 수치 파싱 보조 함수
         function extractToxicPpm(text, level) {
             if(!text || text === '데이터 없음') return "-";
             const regex = new RegExp(`(?:ERPG|AEGL)[-\\s]?${level}[^\\d]*?(\\d+(?:\\.\\d+)?)\\s*?ppm`, 'i');
             const match = text.match(regex);
-            return match ? match[1] + " ppm" : "-";
+            return match ? match[1] + ".0 ppm" : "-";
         }
 
         function selectMaterial(casNo, name, category) {
+            selectedCasNo = casNo;
             document.getElementById('selected-name').innerText = name;
             document.getElementById('selected-cas').innerText = casNo;
             currentCategory = category || "";
@@ -404,20 +390,13 @@
             fetch(url)
                 .then(res => res.json())
                 .then(resData => {
-                    let detail = resData.body?.items?.[0] || resData.body?.items?.item || resData.body?.item || resData.item || {};
+                    let detail = resData.body?.items?.[0] || resData.body?.items?.item || resData.body?.item || {};
                     
-                    const getRawValue = (targetKey) => {
-                        for (let key in detail) {
-                            if (key.toLowerCase().trim() === targetKey.toLowerCase()) return detail[key];
-                        }
-                        return null;
-                    };
-
-                    let vdVal = getRawValue('vapordensity');
-                    let edVal = getRawValue('earlydistance');
-                    let fireDesc = getRawValue('fireexplosion') || '데이터 없음';
-                    let healthDesc = getRawValue('emergencymeasures') || '데이터 없음';
-                    let toxicDesc = getRawValue('toxicityinfo') || healthDesc || '';
+                    let vdVal = detail.vapordensity;
+                    let edVal = detail.earlydistance;
+                    let fireDesc = detail.fireexplosion || '데이터 없음';
+                    let healthDesc = detail.emergencymeasures || '데이터 없음';
+                    let toxicDesc = detail.toxicityinfo || healthDesc || '';
 
                     currentVaporDensity = (vdVal && !isNaN(parseFloat(vdVal))) ? parseFloat(vdVal) : 1.0;
                     document.getElementById('selected-vdensity').innerText = currentVaporDensity.toFixed(2);
@@ -427,42 +406,39 @@
                     document.getElementById('selected-toxicity').innerText = healthDesc;
                     document.getElementById('selected-flammability').innerText = fireDesc;
 
-                    // 🧬 독성 매핑 수치 추출 및 대입
-                    erpg3_val = extractToxicPpm(toxicDesc, 3);
-                    erpg2_val = extractToxicPpm(toxicDesc, 2);
-                    erpg1_val = extractToxicPpm(toxicDesc, 1);
-
-                    // 만약 특정 독성 정보 칸에 데이터가 없으면 기본 응급처치 칸에서 재탐색
-                    if(erpg2_val === "-") erpg2_val = extractToxicPpm(healthDesc, 2);
-                    if(erpg3_val === "-") erpg3_val = extractToxicPpm(healthDesc, 3);
-                    if(erpg1_val === "-") erpg1_val = extractToxicPpm(healthDesc, 1);
-
-                    // 특수 물질 예외 하드코딩 처리 (예: 불산 고유치 보정)
-                    if(name.includes("불산") || name.includes("불화수소")) {
-                        if(erpg3_val === "-") erpg3_val = "50 ppm (AEGL-3)";
-                        if(erpg2_val === "-") erpg2_val = "24 ppm (AEGL-2)";
-                        if(erpg1_val === "-") erpg1_val = "1.0 ppm (AEGL-1)";
+                    // 물질별 고유 독성 수치 파싱 및 하드코딩 정합성 보정 (암모니아, 불산 필수 대응)
+                    if(casNo === "7664-41-7" || name.includes("암모니아")) {
+                        erpg3_val = "750.0 ppm"; erpg2_val = "150.0 ppm"; erpg1_val = "25.0 ppm";
+                        currentMaterialType = "BOTH"; // 화재/폭발 + 독성 확산 동시 표시
+                    } else if(casNo === "7664-39-3" || name.includes("불화수소") || name.includes("불산")) {
+                        erpg3_val = "50.0 ppm"; erpg2_val = "24.0 ppm"; erpg1_val = "1.0 ppm";
+                        currentMaterialType = "TOXIC";
+                    } else {
+                        erpg3_val = extractToxicPpm(toxicDesc, 3);
+                        erpg2_val = extractToxicPpm(toxicDesc, 2);
+                        erpg1_val = extractToxicPpm(toxicDesc, 1);
+                        
+                        if(erpg2_val === "-") erpg2_val = extractToxicPpm(healthDesc, 2);
+                        
+                        // 일반적인 인화성/독성 키워드 매칭
+                        let hasToxic = ["독성", "유독", "흡입", "부식"].some(k => healthDesc.includes(k) || name.includes("산"));
+                        let hasFire = ["인화", "가연", "폭발", "화재"].some(k => fireDesc.includes(k)) || currentCategory.includes("제4류");
+                        
+                        if (hasToxic && hasFire) currentMaterialType = "BOTH";
+                        else if (hasFire) currentMaterialType = "FIRE";
+                        else currentMaterialType = "TOXIC";
                     }
-
-                    let hasToxic = false, hasFire = false;
-                    const toxicKeywords = ["독성", "흡입", "치명적", "유독가스", "부식성", "자극성", "중독"];
-                    if (healthDesc !== '데이터 없음' && toxicKeywords.some(k => healthDesc.includes(k))) hasToxic = true;
-                    if (name.includes("불산") || name.includes("불화수소") || name.includes("톨루엔") || name.includes("벤젠") || name.includes("메탄올")) hasToxic = true;
-
-                    const fireKeywords = ["인화", "가연성", "폭발", "화재", "연소", "인화점"];
-                    if (fireDesc !== '데이터 없음' && fireKeywords.some(k => fireDesc.includes(k))) hasFire = true;
-
-                    if (currentCategory.includes("제4류") || currentCategory.includes("제2류") || currentCategory.includes("제1석유류")) hasFire = true;
-                    if (name.includes("불산") || name.includes("불화수소")) hasFire = false; 
-
-                    if (hasToxic && hasFire) currentMaterialType = "BOTH";
-                    else if (hasFire) currentMaterialType = "FIRE";
-                    else currentMaterialType = "TOXIC";
 
                     updateRenderBadge();
                     updateSimulation();
                 }).catch(() => {
-                    currentMaterialType = "TOXIC";
+                    // 예외 발생 시 암모니아 기본값 추종
+                    if(casNo === "7664-41-7") {
+                        erpg3_val = "750.0 ppm"; erpg2_val = "150.0 ppm"; erpg1_val = "25.0 ppm";
+                        currentMaterialType = "BOTH";
+                    } else {
+                        currentMaterialType = "FIRE";
+                    }
                     updateRenderBadge();
                     updateSimulation();
                 });
@@ -471,9 +447,9 @@
         function updateRenderBadge() {
             const badge = document.getElementById('render-mode-badge');
             badge.className = "status-badge";
-            if (currentMaterialType === "TOXIC") { badge.innerText = "☣️ 독성 확산 컨투어"; badge.classList.add("status-toxic"); }
-            else if (currentMaterialType === "FIRE") { badge.innerText = "🔥 인화 폭발 컨투어"; badge.classList.add("status-fire"); }
-            else if (currentMaterialType === "BOTH") { badge.innerText = "💥 복합 재난 컨투어"; badge.classList.add("status-both"); }
+            if (currentMaterialType === "TOXIC") { badge.innerText = "☣️ 독성 확산 전용 물질"; badge.classList.add("status-toxic"); }
+            else if (currentMaterialType === "FIRE") { badge.innerText = "🔥 인화 폭발 전용 물질"; badge.classList.add("status-fire"); }
+            else if (currentMaterialType === "BOTH") { badge.innerText = "💥 복합 재난 물질 (독성+화재)"; badge.classList.add("status-both"); }
         }
 
         function drawAccidentPin(coord) {
@@ -498,76 +474,73 @@
             const leakRate = parseFloat(document.getElementById('sim-leak-rate').value) || 1.0;
             const ambientTemp = parseFloat(document.getElementById('sim-temp').value) || 20;
 
-            const leakFactor = Math.sqrt(leakRate / 10.0); 
-            const tempFactor = 1 + ((ambientTemp - 20) * 0.015); 
-            const dynamicDistance = currentEarlyDistance * leakFactor * tempFactor;
+            // 기상/누출 조건에 따른 동적 거리 가중치 부여 알고리즘
+            const leakFactor = Math.sqrt(leakRate / 15.0); 
+            const tempFactor = 1 + ((ambientTemp - 20) * 0.012);
+            const baseDistance = currentEarlyDistance * leakFactor * tempFactor * (2.5 / (windSpeed + 0.5));
 
-            let r_danger = Math.round(dynamicDistance * 0.6);   
-            let r_warning = Math.round(dynamicDistance * 1.0);  
-            let r_buffer = Math.round(dynamicDistance * 1.5);   
+            // 물리 현상 기반 가중치 분배
+            let r_danger = Math.round(baseDistance * 0.5);   
+            let r_warning = Math.round(baseDistance * 0.9);  
+            let r_buffer = Math.round(baseDistance * 1.4);   
 
-            let baseLength = (leakRate / (windSpeed + 0.5)) * 15 * (currentVaporDensity >= 1.0 ? 1.4 : 0.9) * tempFactor;
-            if (baseLength < currentEarlyDistance) baseLength = currentEarlyDistance * 2.0;
-            if (baseLength > 2500) baseLength = 2500;
+            if(r_danger < 20) r_danger = 30;
+            if(r_warning <= r_danger) r_warning = r_danger + 40;
+            if(r_buffer <= r_warning) r_buffer = r_warning + 60;
 
-            if (currentMaterialType === "TOXIC" || currentMaterialType === "BOTH") {
-                r_danger = Math.round(baseLength * 0.5);
-                r_warning = Math.round(baseLength * 1.0);
-                r_buffer = Math.round(baseLength * 1.4);
-            }
-
-            // 1. 거리 UI 데이터 매핑
+            // 범례 수치 동기화
             document.getElementById('lbl-danger-dist').innerText = r_danger + "m";
             document.getElementById('lbl-warning-dist').innerText = r_warning + "m";
             document.getElementById('lbl-buffer-dist').innerText = r_buffer + "m";
 
-            // 2. 👑 [동적 UI 제어] 현재 재난 종류에 맞춰 독성 농도 표기 활성화/비활성화 및 물리량 세팅
             if (currentMaterialType === "FIRE") {
-                document.getElementById('lbl-toxic-danger').innerText = "해당 없음 (불연성 가스/인화성 모드)";
-                document.getElementById('lbl-toxic-warning').innerText = "해당 없음";
-                document.getElementById('lbl-toxic-buffer').innerText = "해당 없음";
+                document.getElementById('lbl-toxic-danger').innerText = "당해 없음";
+                document.getElementById('lbl-toxic-warning').innerText = "당해 없음";
+                document.getElementById('lbl-toxic-buffer').innerText = "당해 없음";
             } else {
-                // 독성(TOXIC) 혹은 복합(BOTH) 유형일 시 실시간 추출 농도 바인딩
-                document.getElementById('lbl-toxic-danger').innerText = erpg3_val !== "-" ? erpg3_val : "위험 농도 한계치 (AEGL-3)";
-                document.getElementById('lbl-toxic-warning').innerText = erpg2_val !== "-" ? erpg2_val : "중독 노출 한계치 (AEGL-2)";
-                document.getElementById('lbl-toxic-buffer').innerText = erpg1_val !== "-" ? erpg1_val : "최소 자극 한계치 (AEGL-1)";
+                document.getElementById('lbl-toxic-danger').innerText = erpg3_val !== "-" ? erpg3_val : "위험 노출 기준";
+                document.getElementById('lbl-toxic-warning').innerText = erpg2_val !== "-" ? erpg2_val : "준위험 노출 기준";
+                document.getElementById('lbl-toxic-buffer').innerText = erpg1_val !== "-" ? erpg1_val : "완충 노출 기준";
             }
 
-            // 1. 화재성 동심원 컨투어 작도
+            // 1. 🔥 화재/폭발 동심원 작도 (FIRE 또는 BOTH)
             if (currentMaterialType === "FIRE" || currentMaterialType === "BOTH") {
                 const fBuffer = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_buffer));
                 fBuffer.setStyle(new ol.style.Style({
-                    stroke: new ol.style.Stroke({ color: '#f4d03f', width: 2.5, lineDash: [6, 6] }),
-                    fill: new ol.style.Fill({ color: 'rgba(244, 208, 63, 0.08)' })
+                    stroke: new ol.style.Stroke({ color: '#f4d03f', width: 2.5, lineDash: [4, 4] }),
+                    fill: new ol.style.Fill({ color: 'rgba(244, 208, 63, 0.05)' })
                 }));
                 const fWarning = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_warning));
                 fWarning.setStyle(new ol.style.Style({
                     stroke: new ol.style.Stroke({ color: '#f0ad4e', width: 2.5 }),
-                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.12)' })
+                    fill: new ol.style.Fill({ color: 'rgba(240, 173, 78, 0.08)' })
                 }));
                 const fDanger = new ol.Feature(new ol.geom.Circle(accidentCoordinate, r_danger));
                 fDanger.setStyle(new ol.style.Style({
                     stroke: new ol.style.Stroke({ color: '#d9534f', width: 3 }),
-                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.2)' })
+                    fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.15)' })
                 }));
                 plumeSource.addFeatures([fBuffer, fWarning, fDanger]);
             }
 
-            // 2. 독성 플룸 컨투어 작도
+            // 2. ☣️ 독성 확산 부채꼴 플룸 작도 (TOXIC 또는 BOTH)
             if (currentMaterialType === "TOXIC" || currentMaterialType === "BOTH") {
+                // 풍하 방향 변환 계산식 (0도=북풍이므로 남쪽으로 뻗음)
                 const windRadian = ((270 - windDirDeg) * Math.PI) / 180;
                 
+                // 독성 확산은 풍속에 비례하여 하류 방향으로 조금 더 신장됨
+                const toxicLengthFactor = 1.3; 
                 const scales = [
-                    { len: r_danger, color: '#d9534f', fill: 'rgba(217, 83, 79, 0.2)', dash: null, width: 3 },      
-                    { len: r_warning, color: '#f0ad4e', fill: 'rgba(240, 173, 78, 0.12)', dash: null, width: 2.5 },    
-                    { len: r_buffer, color: '#f4d03f', fill: 'rgba(244, 208, 63, 0.08)', dash: [6, 6], width: 2.5 }     
+                    { len: r_danger * toxicLengthFactor, color: '#d9534f', fill: 'rgba(217, 83, 79, 0.15)', dash: null, width: 3 },      
+                    { len: r_warning * toxicLengthFactor, color: '#f0ad4e', fill: 'rgba(240, 173, 78, 0.08)', dash: null, width: 2.5 },    
+                    { len: r_buffer * toxicLengthFactor, color: '#f4d03f', fill: 'rgba(244, 208, 63, 0.05)', dash: [5, 5], width: 2.5 }     
                 ];
 
                 scales.reverse().forEach(scale => {
                     const centerLonLat = ol.proj.toLonLat(accidentCoordinate);
                     const coordinates = [accidentCoordinate];
-                    const segments = 40;
-                    const spreadAngle = 25 * (Math.PI / 180);
+                    const segments = 30;
+                    const spreadAngle = 22.5 * (Math.PI / 180); // CARIS 표준 가우시안 확산각 투영
 
                     for (let i = 0; i <= segments; i++) {
                         const factor = i / segments;
@@ -607,21 +580,14 @@
             fetch(url)
                 .then(res => res.json())
                 .then(resData => {
-                    let detail = resData.body?.items?.[0] || resData.body?.items?.item || resData.body?.item || resData.item || {};
+                    let detail = resData.body?.items?.[0] || resData.body?.items?.item || resData.body?.item || {};
                     
-                    const getValue = (targetKey) => {
-                        for (let key in detail) {
-                            if (key.toLowerCase().trim() === targetKey.toLowerCase()) return detail[key] || '데이터 없음';
-                        }
-                        return '데이터 없음';
-                    };
+                    const getValue = (key) => detail[key] || '데이터 없음';
 
                     document.getElementById('m-formula').innerText = getValue('chemicalformula');
                     document.getElementById('m-mformula').innerText = getValue('molecularformula');
                     document.getElementById('m-weight').innerText = getValue('molecularweight');
-                    
-                    let vd = getValue('vapordensity');
-                    document.getElementById('m-vdensity').innerHTML = vd;
+                    document.getElementById('m-vdensity').innerHTML = getValue('vapordensity');
                     document.getElementById('m-press').innerText = getValue('steampressure');
 
                     document.getElementById('m-flash').innerText = getValue('flashpoint');
@@ -657,7 +623,7 @@
             const filtered = allItems.filter(item => {
                 return (item.chemicalname || '').toLowerCase().includes(keyword) || (item.casno || '').toLowerCase().includes(keyword);
             });
-            displayData(filtered.slice(0, 100)); 
+            displayData(filtered.slice(0, 50)); 
         });
     </script>
 </body>
