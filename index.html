@@ -184,7 +184,6 @@
         const SERVICE_KEY = "91020e37ba5a81c479cf412dba322e132aa216d82f382bb8ae37ce6ce8bf7ccc"; 
         let allItems = []; 
         
-        // 지도 연동용 전역 변수
         let currentVaporDensity = 1.0;
         let currentEarlyDistance = 30; 
 
@@ -260,24 +259,21 @@
             tableBody.innerHTML = htmlRows;
         }
 
-        // 지능형 데이터 정제 함수 (낮/밤 분리 문자열 처리 기능 추가)
+        // 완전히 고정/독립된 숫자 전용 파싱 알고리즘
         function parseDistance(rawStr) {
             if (!rawStr || rawStr === '데이터 없음' || rawStr === '-') return 30;
-            const str = rawStr.toString();
+            const str = rawStr.toString().trim();
             
-            // "낮: 50m, 밤: 300m" 같은 문자열 구조 대응
-            if (str.includes('낮') || str.includes('밤')) {
-                const numbers = str.match(/\d+/g); // 모든 숫자 추출 배열
-                if (numbers && numbers.length > 0) {
-                    // 안전공학 관점에서 밤(최대값) 또는 추출된 수치 중 가장 보수적인 큰 값을 반환
-                    const intNumbers = numbers.map(n => parseInt(n));
-                    return Math.max(...intNumbers);
+            // "낮: 60m, 밤: 300m" 구조에서 순수 숫자만 순회하여 분리 추출
+            const numbers = str.match(/\d+/g); 
+            if (numbers && numbers.length > 0) {
+                // 문자로 붙는 대형 참사를 막기 위해 완벽하게 정수화(Number) 후 비교
+                const intNumbers = numbers.map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+                if (intNumbers.length > 0) {
+                    return Math.max(...intNumbers); // 가장 보수적인 큰 값(밤)을 안전하게 반환
                 }
             }
-            
-            // 일반적인 "30 m" 형태 처리
-            const num = parseInt(str.replace(/[^0-9]/g, ""));
-            return num || 30;
+            return 30;
         }
 
         function selectMaterial(casNo, name) {
@@ -319,10 +315,11 @@
                         document.getElementById('selected-vdensity').innerText = "데이터 없음 (기본값 1.00)";
                     }
 
-                    // 2. 이격거리 정밀 분석 파싱 적용
+                    // 2. 이격거리 정밀 분석 파싱 적용 및 텍스트 분리 차단
                     if (edVal) {
-                        currentEarlyDistance = parseDistance(edVal);
-                        document.getElementById('selected-edist').innerText = currentEarlyDistance + ` m (${edVal.toString().trim()})`;
+                        currentEarlyDistance = parseDistance(edVal); // 전역 지도 변수에는 순수한 숫자 정수만 제공
+                        // 대시보드 화면 텍스트에는 원본 포맷만 스트링으로 친절하게 기재
+                        document.getElementById('selected-edist').innerText = currentEarlyDistance + ` m [API 원본: ${edVal.toString().trim()}]`;
                     } else {
                         currentEarlyDistance = 30;
                         document.getElementById('selected-edist').innerText = "30 m (기본값)";
@@ -364,8 +361,8 @@
             if (maxPlumeLength < currentEarlyDistance) maxPlumeLength = currentEarlyDistance * 2.5;
             if (maxPlumeLength > 2000) maxPlumeLength = 2000; 
 
-            // 초기 격리 구역
-            const circleFeature = new ol.Feature(new ol.geom.Circle(accidentCoordinate, currentEarlyDistance));
+            // 초기 격리 구역 (순수 Number 형으로 완벽 고정)
+            const circleFeature = new ol.Feature(new ol.geom.Circle(accidentCoordinate, Number(currentEarlyDistance)));
             circleFeature.setStyle(new ol.style.Style({
                 fill: new ol.style.Fill({ color: 'rgba(217, 83, 79, 0.35)' }),
                 stroke: new ol.style.Stroke({ color: '#d9534f', width: 2, lineDash: [4, 4] })
