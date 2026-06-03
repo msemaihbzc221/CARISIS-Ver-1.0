@@ -20,7 +20,7 @@
         .badge { background: #6c757d; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
         .badge-warning { background: #d9534f; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 5px; }
 
-        /* [추가] 위험물 유별 배경 색상 스타일 */
+        /* 위험물 유별 배경 색상 스타일 */
         .class-1 { background-color: #ccffcc !important; } /* 1류: 연두색 */
         .class-2 { background-color: #ffcc99 !important; } /* 2류: 주황색 */
         .class-3 { background-color: #ffff99 !important; } /* 3류: 노랑색 */
@@ -28,7 +28,7 @@
         .class-5 { background-color: #ffcccc !important; } /* 5류: 빨간색 */
         .class-6 { background-color: #cceeff !important; } /* 6류: 파란색 */
 
-        /* 대형 팝업창 스타일 (100% 유지) */
+        /* 대형 팝업창 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 12px; width: 95%; max-width: 750px; max-height: 85vh; overflow-y: auto; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
         .modal-header { border-bottom: 2px solid #d9534f; padding-bottom: 10px; margin-bottom: 15px; }
@@ -131,7 +131,7 @@
                 displayData(allItems.slice(0, 50));
             });
 
-        // 테이블 출력 함수 (유별 색상 클래스 자동 추가 기능 탑재)
+        // 테이블 출력 함수 (안전하게 데이터 처리하도록 보완)
         function displayData(items) {
             const tableBody = document.querySelector('#data-table tbody');
             let htmlRows = ''; 
@@ -140,12 +140,17 @@
                 return;
             }
             items.forEach((item, index) => {
-                // '제4류' 패턴에서 숫자만 추출하여 색상 클래스 적용
                 const category = item.hazardmaterialclass || '';
                 const classMatch = category.match(/제(\d)류/);
                 const rowClass = classMatch ? `class-${classMatch[1]}` : '';
+                
+                // 데이터 안전 필터 처리 (데이터가 없는 빈 칸이어도 자바스크립트가 터지지 않게 보완)
+                const safeCasno = (item.casno || '').trim();
+                const safeName = (item.chemicalname || '').replace(/'/g, "\\'").trim();
+                const safeHClass = (item.hazardmaterialclass || '').replace(/'/g, "\\'").trim();
+                const safeUnno = (item.unno || '').trim();
 
-                htmlRows += `<tr class="${rowClass}" onclick="fetchDetail('${item.casno}', '${item.chemicalname}', '${item.hazardmaterialclass}', '${item.unno}')">
+                htmlRows += `<tr class="${rowClass}" onclick="fetchDetail('${safeCasno}', '${safeName}', '${safeHClass}', '${safeUnno}')">
                     <td>${index + 1}</td>
                     <td><strong>${item.chemicalname || '정보 없음'}</strong></td>
                     <td>${item.casno || '-'}</td>
@@ -155,7 +160,7 @@
             tableBody.innerHTML = htmlRows;
         }
 
-        // 실시간 상세 데이터 크롤링 및 파싱 함수 (100% 완전 보존)
+        // 실시간 상세 데이터 매칭 및 팝업창 바인딩
         function fetchDetail(casNo, name, hClass, un) {
             const modal = document.getElementById('info-modal');
             const loading = document.getElementById('modal-loading');
@@ -168,6 +173,14 @@
             modal.style.display = 'flex';
 
             searchLink.href = `https://www.google.com/search?q=${encodeURIComponent(name + ' 인화점 화학식')}`;
+
+            // CAS 번호가 없으면 API 호출 대신 즉시 공란 상태로 팝업 표출
+            if(!casNo || casino === '-') {
+                clearModalFields();
+                loading.style.display = 'none';
+                body.style.display = 'block';
+                return;
+            }
 
             const url = `https://apis.data.go.kr/1661000/materialInfoSvc/getMaterialInfo?serviceKey=${SERVICE_KEY}&casNo=${casNo}&pageNo=1&numOfRows=1&dataType=JSON`;
 
@@ -222,9 +235,18 @@
                 })
                 .catch(err => {
                     console.error(err);
+                    clearModalFields();
                     loading.style.display = 'none';
                     body.style.display = 'block';
                 });
+        }
+
+        function clearModalFields() {
+            const fields = ['m-formula', 'm-mformula', 'm-weight', 'm-vdensity', 'm-press', 'm-bp', 'm-mp', 'm-wsol', 'm-sg', 'm-flash', 'm-ignition', 'm-exmax', 'm-exmin', 'm-fire-desc', 'm-edist', 'm-pdist', 'm-smell', 'm-emergency', 'm-leak-protect'];
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                if(el) el.innerText = '데이터 없음';
+            });
         }
 
         function closeModal(e) {
@@ -233,7 +255,7 @@
             }
         }
 
-        // 지능형 검색 정렬 리스너 (요청사항 반영)
+        // 지능형 검색 정렬 리스너 (요청사항 100% 반영)
         document.getElementById('search-input').addEventListener('input', function(e) {
             const keyword = e.target.value.trim().toLowerCase(); 
             if (!keyword) { displayData(allItems.slice(0, 50)); return; }
